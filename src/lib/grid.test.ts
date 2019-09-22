@@ -142,6 +142,42 @@ describe('Grid', () => {
         expectSelected([[0, 0]]);
     });
 
+    it('should select whole column', () => {
+        const grid = create({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+        fireEvent(grid.head.elements[1], new MouseEvent('mousedown'));
+        fireEvent(grid.head.elements[1], new MouseEvent('mouseup', { bubbles: true }));
+        expectSelected([[0, 1], [1, 1]])
+    });
+
+    it('should select whole columns by dragging from right to left', () => {
+        const grid = create({
+            cols: ['a', 'b', 'c'],
+            rows: [ [1, 2, 3], [4, 5, 6] ],
+        });
+        fireEvent(grid.head.elements[2], new MouseEvent('mousedown'));
+        expectSelected([[0, 2], [1, 2]])
+        fireEvent(grid.head.elements[1], new MouseEvent('mousemove', { bubbles: true }));
+        expectSelected([[0, 1], [1, 1], [0, 2], [1, 2]])
+        fireEvent(grid.head.elements[0], new MouseEvent('mousemove', { bubbles: true }));
+        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]])
+    });
+
+    it('should select whole columns by dragging from left to right', () => {
+        const grid = create({
+            cols: ['a', 'b', 'c'],
+            rows: [ [1, 2, 3], [4, 5, 6] ],
+        });
+        fireEvent(grid.head.elements[0], new MouseEvent('mousedown'));
+        expectSelected([[0, 0], [1, 0]])
+        fireEvent(grid.head.elements[1], new MouseEvent('mousemove', { bubbles: true }));
+        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1]])
+        fireEvent(grid.head.elements[2], new MouseEvent('mousemove', { bubbles: true }));
+        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]])
+    });
+
     it('should clear all selected cells by del key', () => {
         const grid = create({
             cols: ['a', 'b'],
@@ -155,6 +191,18 @@ describe('Grid', () => {
 
         expect(grid.rows[0].values()).toEqual(['', '2']);
         expect(grid.rows[1].values()).toEqual(['', '4']);
+    });
+
+    it('should clear whole columns by del key', () => {
+        const grid = create({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+        fireEvent(grid.head.elements[1], new MouseEvent('mousedown'));
+        fireEvent(grid.head.elements[1], new MouseEvent('mouseup', { bubbles: true }));
+        fireEvent.keyDown(document.activeElement, { key: 'Delete', keyCode: 46 });
+        expect(grid.rows[0].values()).toEqual(['1', '']);
+        expect(grid.rows[1].values()).toEqual(['3', '']);
     });
 
     it('should fire input event on del', () => {

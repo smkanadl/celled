@@ -74,7 +74,7 @@ export class Grid {
         container.appendChild(this.hiddenInput);
         container.appendChild(grid);
         const head = query(container, css(CSS_HEAD));
-        options.cols.forEach(c => head.appendChild(createHeadCell(c)));
+        options.cols.forEach((c, index) => head.appendChild(this.createHeadCell(c, index)));
         options.rows.forEach((r, index) => {
             const row = new Row(index);
             row.addCells(r);
@@ -90,7 +90,7 @@ export class Grid {
     }
 
     /**
-     * Add an event listener.
+     * Adds an event listener.
      * Grid fires these events:
      * 'input', 'focus'
      */
@@ -103,6 +103,72 @@ export class Grid {
         this.setCell(this.rows[row].cells[col], value);
     }
 
+    private createHeadCell(text: string|number, columnIndex: number) {
+        const column = createElement(`<div class="${CSS_CELL}" data-ci="${columnIndex}"><span>${text}</span></div>`);
+        const resizer = createElement(`<div class="${CSS_RESIZER}"></div>`);
+        column.appendChild(resizer);
+
+        let downPosition = null;
+        let nextColumn = null;
+        let currentWidth = null;
+        let currentNextWidth = null;
+        let selecting = false;
+
+        const mousemove = (e: MouseEvent) => {
+            if (selecting) {
+                let col = e.target as Element;
+                while (col) {
+                    const ciAttr = col.getAttribute('data-ci');
+                    const ci = +ciAttr;
+                    if (ciAttr !== null && !isNaN(ci)) {
+                        const minCol = Math.min(columnIndex, ci);
+                        const maxCol = Math.max(columnIndex, ci);
+                        this.cells.forEach(c => c.select(c.col >= minCol && c.col <= maxCol));
+                        break;
+                    }
+                    col = col.parentElement;
+                }
+            }
+            else {
+                const diff = e.pageX - downPosition;
+                if (nextColumn) {
+                    nextColumn.style.width = (currentNextWidth - diff) + 'px';
+                }
+                column.style.width = (currentWidth + diff) + 'px';
+            }
+        };
+
+        const mouseup = () => {
+            downPosition = null;
+            selecting = false;
+            off(document, 'mousemove', mousemove);
+            off(document, 'mouseup', mouseup);
+        };
+
+        on(column, 'mousedown', (e: MouseEvent) => {
+            if (e.target === resizer) {
+                // Resize columns
+                nextColumn = column.nextElementSibling;
+                downPosition = e.pageX;
+                currentWidth = column.offsetWidth;
+                currentNextWidth = nextColumn ? nextColumn.offsetWidth : null;
+            }
+            else if (this.rows.length) {
+                // Select column
+                const i = +column.getAttribute('data-ci');
+                selecting = true;
+                this.cells.forEach(c => c.activate(false).select(c.col === i));
+                this.hiddenInput.focus();
+                this.activeCell = this.rows[0].cells[i];
+            }
+            on(document, 'mouseup', mouseup);
+            on(document, 'mousemove', mousemove);
+            e.preventDefault();
+        })
+
+        return column;
+    }
+
     private initMouse() {
         const rows = this.rows;
         let downCellIndex: number;
@@ -113,7 +179,7 @@ export class Grid {
             const cellIndex = +hoveredCell.getAttribute('data-ci');
             const rowIndex = +hoveredCell.parentElement.getAttribute('data-ri');
             if (!isNaN(cellIndex) && !isNaN(rowIndex)) {
-                this.cells.forEach(c => c.select(false));
+                this.unselect();
                 const firstRow = Math.min(rowIndex, downRowIndex);
                 const lastRow  = Math.max(rowIndex, downRowIndex);
                 const firstCol = Math.min(cellIndex, downCellIndex);
@@ -276,6 +342,10 @@ export class Grid {
         }
     }
 
+    private unselect() {
+        this.cells.forEach(c => c.select(false));
+    }
+
     private updatValue(cell: Cell) {
         const colIndex = cell.col;
         const rowOption = this.options.rows[cell.row];
@@ -411,43 +481,6 @@ class Row {
             this.element.appendChild(cell.element);
         });
     }
-}
-
-
-function createHeadCell(text: string|number) {
-    const column = createElement(`<div class="${CSS_CELL}"><span>${text}</span></div>`);
-    const resizer = createElement(`<div class="${CSS_RESIZER}"></div>`);
-    column.appendChild(resizer);
-
-    let downPosition = null;
-    let nextColumn = null;
-    let currentWidth = null;
-    let currentNextWidth = null;
-    const mousemove = (e: MouseEvent) => {
-        const diff = e.pageX - downPosition;
-        if (nextColumn) {
-            nextColumn.style.width = (currentNextWidth - diff) + 'px';
-        }
-        column.style.width = (currentWidth + diff) + 'px';
-    };
-
-    const mouseup = () => {
-        downPosition = null;
-        off(document, 'mousemove', mousemove);
-        off(document, 'mouseup', mouseup);
-    };
-
-    on(resizer, 'mousedown', (e: MouseEvent) => {
-        nextColumn = column.nextElementSibling;
-        downPosition = e.pageX;
-        currentWidth = column.offsetWidth;
-        currentNextWidth = nextColumn ? nextColumn.offsetWidth : null;
-        on(document, 'mouseup', mouseup);
-        on(document, 'mousemove', mousemove);
-        e.preventDefault();
-    });
-
-    return column;
 }
 
 

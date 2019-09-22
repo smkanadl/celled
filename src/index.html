@@ -17,15 +17,25 @@
 </head>
 <body>
     <h1>CellEd</h1>
-    <div id="grid"></div>
+    <div id="grid1"></div>
+    <div id="grid2"></div>
     <script>
-        var grid = new CellEd.Grid('#grid');
-        grid.init({
+        var grid1 = new CellEd.Grid('#grid1');
+        grid1.init({
             cols: ['A', 'B', 'C'],
             rows: [
                 [1, 2, 3],
                 [1, 2, 3],
                 [1, 2, 3],
+            ],
+        });
+        var grid2 = new CellEd.Grid('#grid2');
+        grid2.init({
+            cols: ['A', 'B'],
+            rows: [
+                [{ value: 1, readonly: true}, 2],
+                [{ value: 1, readonly: true}, 2],
+                [{ value: 1, readonly: true}, 2],
             ],
         });
     </script>
