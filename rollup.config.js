@@ -7,7 +7,7 @@ import sourceMaps from 'rollup-plugin-sourcemaps';
 import scss from 'rollup-plugin-scss';
 
 export default {
-    input: 'src/index.ts',
+    input: 'src/celled.ts',
     output: [
         { file: 'dist/celled.js', format: 'umd', name: 'CellEd', sourcemap: true },
         { file: 'dist/celled.min.js', format: 'umd', name: 'CellEd', sourcemap: true },

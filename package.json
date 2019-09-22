@@ -1,15 +1,20 @@
 {
   "name": "celled",
-  "version": "1.0.0",
-  "description": "Simple javscript cell editor",
+  "version": "1.0.1",
+  "description": "Simple javascript cell editor",
   "main": "dist/celled.js",
   "module": "dist/celled.es5.js",
+  "files": ["dist"],
   "scripts": {
     "build": "rollup -c",
     "start": "rollup -cw",
     "test": "jest --watchAll"
   },
   "author": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hansmaad/celled.git"
+  },
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
