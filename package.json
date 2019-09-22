@@ -1,0 +1,29 @@
+{
+  "name": "celled",
+  "version": "1.0.0",
+  "description": "Simple javscript cell editor",
+  "main": "dist/celled.js",
+  "module": "dist/celled.es5.js",
+  "scripts": {
+    "build": "rollup -c",
+    "start": "rollup -cw",
+    "test": "jest --watchAll"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@testing-library/dom": "^6.3.0",
+    "@types/jest": "^24.0.18",
+    "jest": "^24.9.0",
+    "rollup": "^1.21.4",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-scss": "^1.0.2",
+    "rollup-plugin-sourcemaps": "^0.4.2",
+    "rollup-plugin-terser": "^5.1.2",
+    "rollup-plugin-typescript2": "^0.24.2",
+    "ts-jest": "^24.1.0",
+    "typescript": "^3.6.3"
+  }
+}

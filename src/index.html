@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="../dist/celled.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="../dist/celled.css">
+    <style>
+        body {
+            font-size: 40px;
+            background: black;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>CellEd</h1>
+    <div id="grid"></div>
+    <script>
+        var grid = new CellEd.Grid('#grid');
+        grid.init({
+            cols: ['A', 'B', 'C'],
+            rows: [
+                [1, 2, 3],
+                [1, 2, 3],
+                [1, 2, 3],
+            ],
+        });
+    </script>
+</body>
+</html>

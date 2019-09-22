@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "moduleResolution": "node",
+        "target": "es5",
+        "declaration": true,
+        "declarationDir": "./dist",
+        "lib": ["es2015", "es2016", "es2017", "dom"],
+        "outDir": "./dist/lib",
+        "module": "es2015",
+        "esModuleInterop": true,
+        "sourceMap": true
+    },
+    "include": [
+        "src"
+    ],
+    "exclude": [
+        "node_modules",
+        "**/*.test.ts"
+    ]
+}

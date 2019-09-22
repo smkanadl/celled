@@ -1,0 +1,105 @@
+$class-prefix: ced;
+$class-grid: #{$class-prefix}-grid;
+$class-head: #{$class-prefix}-head;
+$class-resizer: #{$class-prefix}-resizer;
+$class-row: #{$class-prefix}-row;
+$class-cell: #{$class-prefix}-cell;
+$class-resizer: #{$class-prefix}-resizer;
+$class-editing: #{$class-prefix}-editing;
+
+$class-highlight: #{$class-prefix}-active;
+$class-selected: #{$class-prefix}-selected;
+
+$color-cell-border: #ccc;
+$color-dark-bg: #eee;
+$color-light-bg: #fff;
+$color-head-bg: $color-dark-bg;
+
+$border: 1px solid $color-cell-border;
+$cell-padding: 0.25em 0.5em;
+
+.#{$class-grid} {
+    display: table;
+    border-collapse: collapse;
+    width: 100%;
+    outline: none;
+    color: #333;
+
+    &, *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
+    .#{$class-head} {
+        font-weight: 700;
+        &.#{$class-row} .#{$class-cell} {
+            background: $color-head-bg;
+        }
+    }
+
+    .#{$class-resizer} {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 5px;
+        background: transparent;
+        cursor: col-resize;
+    }
+
+    .#{$class-row} {
+        display: table-row;
+    }
+
+    input {
+        border: 0;
+        margin: 0;
+        padding: $cell-padding;
+        outline: none;
+        color: inherit;
+        overflow: hidden;
+        resize: none;
+        font-size: inherit;
+        font-family: inherit;
+        &:focus {
+            background: #fafafa;
+        }
+    }
+
+    .#{$class-row}:nth-child(odd) {
+        .#{$class-cell}:not(.#{$class-selected}):not(.#{$class-highlight}) {
+            background: $color-dark-bg;
+        }
+    }
+
+    .#{$class-row} .#{$class-cell} {
+        cursor: default;
+        position: relative;
+        display: table-cell;
+        border: $border;
+        padding: $cell-padding;
+        height: 2.1em;
+        line-height: 1.5em;
+        vertical-align: middle;
+        background: $color-light-bg;
+
+        // position: relative will hide the border on FF and IE:
+        background-clip: padding-box !important;
+
+        &.#{$class-selected}.#{$class-editing} {
+            background: #fff;
+            color: #333;
+            padding: 0;
+        }
+    }
+
+    .#{$class-cell}.#{$class-selected}.#{$class-highlight}, .#{$class-cell}.#{$class-highlight} {
+        background: #0056b3;
+        color: #fff;
+    }
+
+    .#{$class-cell}.#{$class-selected} {
+        background: #4683c5;
+        color: #fff;
+    }
+
+}
