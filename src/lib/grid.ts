@@ -21,16 +21,22 @@ export interface InputArgs {
     value: string;
 }
 
+export interface SelectArgs {
+    grid: Grid;
+    selection: Array<{ row: number, col: number }>;
+}
+
 const CSS_PREFIX = 'ced';
-const CSS_GRID     = `${CSS_PREFIX}-grid`;
-const CSS_ROW      = `${CSS_PREFIX}-row`;
-const CSS_CELL     = `${CSS_PREFIX}-cell`;
-const CSS_HEAD     = `${CSS_PREFIX}-head`;
-const CSS_RESIZER  = `${CSS_PREFIX}-resizer`;
-const CSS_EDITING  = `${CSS_PREFIX}-editing`;
-const CSS_ACTIVE   = `${CSS_PREFIX}-active`;
-const CSS_SELECTED = `${CSS_PREFIX}-selected`;
-const CSS_READONLY = `${CSS_PREFIX}-readonly`;
+const CSS_CONTAINER = `${CSS_PREFIX}-grid-container`;
+const CSS_GRID      = `${CSS_PREFIX}-grid`;
+const CSS_ROW       = `${CSS_PREFIX}-row`;
+const CSS_CELL      = `${CSS_PREFIX}-cell`;
+const CSS_HEAD      = `${CSS_PREFIX}-head`;
+const CSS_RESIZER   = `${CSS_PREFIX}-resizer`;
+const CSS_EDITING   = `${CSS_PREFIX}-editing`;
+const CSS_ACTIVE    = `${CSS_PREFIX}-active`;
+const CSS_SELECTED  = `${CSS_PREFIX}-selected`;
+const CSS_READONLY  = `${CSS_PREFIX}-readonly`;
 
 function css(className) {
     return '.' + className;
@@ -66,13 +72,15 @@ export class Grid {
         else {
             this.cellInput = createElement<HTMLInputElement>(`<input type="text" >`);
         }
-
         this.hiddenInput = createElement(
             '<div style="position:absolute; z-index:-1; left:2px; top: 2px;" contenteditable tabindex="0"></div>');
+        const gridContainer = createElement(`<div class="${CSS_CONTAINER}"></div>`);
         const grid = this.grid = createElement(
             `<div class="${CSS_GRID}"><div class="${CSS_ROW} ${CSS_HEAD}"></div></div>`);
-        container.appendChild(this.hiddenInput);
-        container.appendChild(grid);
+
+        container.appendChild(gridContainer);
+        gridContainer.appendChild(this.hiddenInput);
+        gridContainer.appendChild(grid);
         const head = query(container, css(CSS_HEAD));
         options.cols.forEach((c, index) => head.appendChild(this.createHeadCell(c, index)));
         options.rows.forEach((r, index) => {
@@ -91,10 +99,11 @@ export class Grid {
 
     /**
      * Adds an event listener.
-     * Grid fires these events:
+     * Grid fires these events:S
      * 'input', 'focus'
      */
     on(event: 'input' | 'focus', handler: EventHandler<InputArgs>);
+    on(event: 'select', handler: EventHandler<SelectArgs>);
     on(event: string, handler: EventHandlerBase) {
         this.events.addHandler(event, handler);
     }
@@ -112,10 +121,10 @@ export class Grid {
         let nextColumn = null;
         let currentWidth = null;
         let currentNextWidth = null;
-        let selecting = false;
+        let selection = null;
 
         const mousemove = (e: MouseEvent) => {
-            if (selecting) {
+            if (selection) {
                 let col = e.target as Element;
                 while (col) {
                     const ciAttr = col.getAttribute('data-ci');
@@ -123,7 +132,11 @@ export class Grid {
                     if (ciAttr !== null && !isNaN(ci)) {
                         const minCol = Math.min(columnIndex, ci);
                         const maxCol = Math.max(columnIndex, ci);
-                        this.cells.forEach(c => c.select(c.col >= minCol && c.col <= maxCol));
+                        if (selection[0] !== minCol || selection[1] !== maxCol) {
+                            selection = [minCol, maxCol];
+                            this.cells.forEach(c => c.select(c.col >= minCol && c.col <= maxCol));
+                            this.emitSelect();
+                        }
                         break;
                     }
                     col = col.parentElement;
@@ -140,7 +153,7 @@ export class Grid {
 
         const mouseup = () => {
             downPosition = null;
-            selecting = false;
+            selection = null;
             off(document, 'mousemove', mousemove);
             off(document, 'mouseup', mouseup);
         };
@@ -156,15 +169,17 @@ export class Grid {
             else if (this.rows.length) {
                 // Select column
                 const i = +column.getAttribute('data-ci');
-                selecting = true;
+                selection = true;
                 this.cells.forEach(c => c.activate(false).select(c.col === i));
+                selection = [i, i];
                 this.hiddenInput.focus();
                 this.activeCell = this.rows[0].cells[i];
+                this.emitSelect();
             }
             on(document, 'mouseup', mouseup);
             on(document, 'mousemove', mousemove);
             e.preventDefault();
-        })
+        });
 
         return column;
     }
@@ -174,20 +189,31 @@ export class Grid {
         let downCellIndex: number;
         let downRowIndex: number;
 
+        let selectionIdentifier: string = null;
+        const rememberSelection = (r1, c1, r2, c2) => '' + r1 + c1 + r2 + c2;
+
         const mousemove = (moveEvent: MouseEvent) => {
             const hoveredCell = moveEvent.target as Element;
+            if (!hoveredCell || !hoveredCell.parentElement) {
+                return;
+            }
             const cellIndex = +hoveredCell.getAttribute('data-ci');
             const rowIndex = +hoveredCell.parentElement.getAttribute('data-ri');
             if (!isNaN(cellIndex) && !isNaN(rowIndex)) {
-                this.unselect();
                 const firstRow = Math.min(rowIndex, downRowIndex);
                 const lastRow  = Math.max(rowIndex, downRowIndex);
                 const firstCol = Math.min(cellIndex, downCellIndex);
                 const lastCol  = Math.max(cellIndex, downCellIndex);
-                for (let ri = firstRow; ri <= lastRow; ++ri) {
-                    for (let ci = firstCol; ci <= lastCol; ++ci) {
-                        this.rows[ri].cells[ci].select();
+                const newSelectionIdentifier = rememberSelection(firstRow, firstCol, lastRow, lastCol);
+                if (selectionIdentifier !== newSelectionIdentifier) {
+                    selectionIdentifier = newSelectionIdentifier;
+                    this.unselect();
+                    for (let ri = firstRow; ri <= lastRow; ++ri) {
+                        for (let ci = firstCol; ci <= lastCol; ++ci) {
+                            this.rows[ri].cells[ci].select();
+                        }
                     }
+                    this.emitSelect();
                 }
             }
         };
@@ -216,8 +242,10 @@ export class Grid {
                     this.hiddenInput.focus();  // focus to receive paste events
                     downRowIndex = rowIndex;
                     downCellIndex = cellIndex;
+                    selectionIdentifier = rememberSelection(rowIndex, cellIndex, rowIndex, cellIndex);
                     this.cells.forEach(c => c.select(false).activate(false));
                     this.activeCell = cell.activate();
+                    this.emitSelect();
                     on(document, 'mouseup', mouseup);
                     on(document, 'mousemove', mousemove);
                 }
@@ -234,6 +262,7 @@ export class Grid {
                     }
                 }
                 this.cells.forEach(c => c.select(false).activate(false));
+                this.emitSelect();
             }
         });
     }
@@ -377,6 +406,16 @@ export class Grid {
             value: cell.value(),
         });
     }
+
+    private emitSelect() {
+        this.events.emit<SelectArgs>('select', {
+            grid: this,
+            selection : this.cells.filter(c => c.selected()).map(c => ({
+                row: c.row,
+                col: c.col,
+            })),
+        });
+    }
 }
 
 class Cell {
@@ -486,20 +525,20 @@ class Row {
 
 
 // ----
-function query(elOrCss, css?): Element {
-    if (!css) {
-        css = elOrCss;
+function query(elOrCss, cssSelector?): Element {
+    if (!cssSelector) {
+        cssSelector = elOrCss;
         elOrCss = document;
     }
-    return elOrCss.querySelector(css);
+    return elOrCss.querySelector(cssSelector);
 }
 
-function queryAll(elOrCss, css?): Element[] {
-    if (!css) {
-        css = elOrCss;
+function queryAll(elOrCss, cssSelector?): Element[] {
+    if (!cssSelector) {
+        cssSelector = elOrCss;
         elOrCss = document;
     }
-    return [].slice.call(elOrCss.querySelectorAll(css));
+    return [].slice.call(elOrCss.querySelectorAll(cssSelector));
 }
 
 function createElement<T extends HTMLElement>(html: string): T {

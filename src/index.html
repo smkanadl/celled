@@ -9,17 +9,23 @@
     <link rel="stylesheet" type="text/css" href="../dist/celled.css">
     <style>
         body {
-            font-size: 40px;
-            background: black;
-            color: white;
+            font-size: 18px;
+        }
+        .ced-readonly {
+            font-weight: 700;
         }
     </style>
 </head>
 <body>
     <h1>CellEd</h1>
     <div id="grid1"></div>
-    <div id="grid2"></div>
+    <div id="grid2" style="margin: 1em 0"></div>
+    <pre id="log"></pre>
     <script>
+        function log(msg) {
+            var l =document.getElementById('log'); 
+            l.innerHTML = msg + l.innerHTML;
+        }
         var grid1 = new CellEd.Grid('#grid1');
         grid1.init({
             cols: ['A', 'B', 'C'],
@@ -29,6 +35,7 @@
                 [1, 2, 3],
             ],
         });
+        grid1.on('select', a => log('select ' + a.selection.map(s => '' + s.row + ':' + s.col).join(', ') + '\n'));
         var grid2 = new CellEd.Grid('#grid2');
         grid2.init({
             cols: ['A', 'B'],

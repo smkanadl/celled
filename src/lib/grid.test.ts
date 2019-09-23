@@ -1,4 +1,4 @@
-import { Grid, GridOptions, InputArgs } from './grid';
+import { Grid, GridOptions, InputArgs, SelectArgs } from './grid';
 import { getByText, fireEvent } from '@testing-library/dom';
 
 function queryAll<T extends Element>(elementOrCss: ParentNode|string, cssOrEmpty?: string): T[] {
@@ -101,7 +101,7 @@ describe('Grid', () => {
         expect(grid.rows[1].values()).toEqual(['3', '4']);
     });
 
-    it('should highlight selected cell', () => {
+    it('should select cell on click', () => {
         const grid = create({
             cols: ['a', 'b'],
             rows: [ [1, 2], [3, 4] ],
@@ -117,6 +117,47 @@ describe('Grid', () => {
         fireEvent(cell2, new MouseEvent('mouseup'));
         expect(cell1.className).not.toContain('ced-selected');
         expect(cell2.className).toContain('ced-selected');
+    });
+
+    it('should fire select events on click', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+        let selection: SelectArgs;
+        g.on('select', args => selection = args);
+
+        clickCell(0, 0);
+        expect(selection.selection).toEqual([{ row: 0, col: 0}]);
+        clickCell(1, 1);
+        expect(selection.selection).toEqual([{ row: 1, col: 1}]);
+    });
+
+    it('should unselect when clicked away', () => {
+        const grid = create({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+        clickCell(0, 0);
+        expectSelected([[0, 0]]);
+        fireEvent(document.body, new MouseEvent('mousedown', { bubbles: true }));
+        fireEvent(document.body, new MouseEvent('mouseup', { bubbles: true }));
+        expectSelected([]);
+    });
+
+    it('should fire select when clicked away', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+        const grid = getGrid();
+        let selection: SelectArgs;
+        g.on('select', args => selection = args);
+
+        clickCell(0, 0);
+        fireEvent(document.body, new MouseEvent('mousedown', { bubbles: true }));
+        fireEvent(document.body, new MouseEvent('mouseup', { bubbles: true }));
+        expect(selection.selection).toEqual([]);
     });
 
     it('should select cells by dragging', () => {
@@ -142,14 +183,102 @@ describe('Grid', () => {
         expectSelected([[0, 0]]);
     });
 
+    it('should fire select event when selecting cells by dragging', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+
+        const grid = getGrid();
+        let selection: SelectArgs;
+        g.on('select', args => selection = args);
+
+        const cell00 = grid.rows[0].cells[0].element;
+        const cell01 = grid.rows[0].cells[1].element;
+        const cell10 = grid.rows[1].cells[0].element;
+        const cell11 = grid.rows[1].cells[1].element;
+        fireEvent(cell00, new MouseEvent('mousedown'));
+        expect(sortSelectArgs(selection)).toEqual([{ row: 0, col: 0 }]);
+
+        fireEvent(cell00, new MouseEvent('mousemove', { bubbles: true }));
+        expect(sortSelectArgs(selection)).toEqual([{ row: 0, col: 0 }]);
+
+        fireEvent(cell01, new MouseEvent('mousemove', { bubbles: true }));
+        expect(sortSelectArgs(selection)).toEqual([{ row: 0, col: 0 }, { row: 0, col: 1 }]);
+
+        fireEvent(cell11, new MouseEvent('mousemove', { bubbles: true }));
+        expect(sortSelectArgs(selection)).toEqual([
+            { row: 0, col: 0 }, { row: 0, col: 1 },
+            { row: 1, col: 0 }, { row: 1, col: 1 }
+        ]);
+
+        fireEvent(cell10, new MouseEvent('mousemove', { bubbles: true }));
+        expect(sortSelectArgs(selection)).toEqual([{ row: 0, col: 0 }, { row: 1, col: 0 }]);
+
+        fireEvent(cell00, new MouseEvent('mousemove', { bubbles: true }));
+        expect(sortSelectArgs(selection)).toEqual([{ row: 0, col: 0 }]);
+    });
+
+    it('should not fire select event when selection did not change during dragging', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+
+        const grid = getGrid();
+        let firedCount = 0;
+        g.on('select', _ => firedCount++);
+
+        const cell00 = grid.rows[0].cells[0].element;
+        const cell01 = grid.rows[0].cells[1].element;
+        const cell11 = grid.rows[1].cells[1].element;
+        fireEvent(cell00, new MouseEvent('mousedown'));
+        fireEvent(cell00, new MouseEvent('mousemove', { bubbles: true }));
+
+        fireEvent(cell01, new MouseEvent('mousemove', { bubbles: true }));
+        fireEvent(cell01, new MouseEvent('mousemove', { bubbles: true }));
+        fireEvent(cell01, new MouseEvent('mousemove', { bubbles: true }));
+
+        fireEvent(cell11, new MouseEvent('mousemove', { bubbles: true }));
+        fireEvent(cell11, new MouseEvent('mousemove', { bubbles: true }));
+        fireEvent(cell11, new MouseEvent('mousemove', { bubbles: true }));
+
+        expect(firedCount).toBe(3);
+    });
+
+
+    it('should not fail if dragging outside document', () => {
+        const grid = create({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+        const cell00 = grid.rows[0].cells[0].element;
+        fireEvent(cell00, new MouseEvent('mousedown'));
+        fireEvent(document, new MouseEvent('mousemove', { bubbles: true }));
+    });
+
     it('should select whole column', () => {
         const grid = create({
             cols: ['a', 'b'],
             rows: [ [1, 2], [3, 4] ],
         });
-        fireEvent(grid.head.elements[1], new MouseEvent('mousedown'));
-        fireEvent(grid.head.elements[1], new MouseEvent('mouseup', { bubbles: true }));
-        expectSelected([[0, 1], [1, 1]])
+
+        clickColumnHead(1);
+        expectSelected([[0, 1], [1, 1]]);
+    });
+
+    it('should fire select events on column select', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+        let selection: SelectArgs;
+        g.on('select', args => selection = args);
+
+        clickColumnHead(1);
+        expect(selection.selection).toEqual([{ row: 0, col: 1}, { row: 1, col: 1}]);
+        clickColumnHead(0);
+        expect(selection.selection).toEqual([{ row: 0, col: 0}, { row: 1, col: 0}]);
     });
 
     it('should select whole columns by dragging from right to left', () => {
@@ -158,12 +287,40 @@ describe('Grid', () => {
             rows: [ [1, 2, 3], [4, 5, 6] ],
         });
         fireEvent(grid.head.elements[2], new MouseEvent('mousedown'));
-        expectSelected([[0, 2], [1, 2]])
+        expectSelected([[0, 2], [1, 2]]);
         fireEvent(grid.head.elements[1], new MouseEvent('mousemove', { bubbles: true }));
-        expectSelected([[0, 1], [1, 1], [0, 2], [1, 2]])
+        expectSelected([[0, 1], [1, 1], [0, 2], [1, 2]]);
         fireEvent(grid.head.elements[0], new MouseEvent('mousemove', { bubbles: true }));
-        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]])
+        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]]);
     });
+
+    it('should fire select event when selecting columns by dragging', () => {
+        const g = createGrid({
+            cols: ['a', 'b', 'c'],
+            rows: [ [1, 2, 3], [4, 5, 6] ],
+        });
+        const grid = getGrid();
+        let selection: SelectArgs;
+        g.on('select', args => selection = args);
+
+        fireEvent(grid.head.elements[2], new MouseEvent('mousedown'));
+        expect(sortSelectArgs(selection)).toEqual([{ row: 0, col: 2}, { row: 1, col: 2}]);
+
+        fireEvent(grid.head.elements[1], new MouseEvent('mousemove', { bubbles: true }));
+        expect(sortSelectArgs(selection)).toEqual([
+            { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 1, col: 1 }, { row: 1, col: 2 }]);
+
+        fireEvent(grid.head.elements[0], new MouseEvent('mousemove', { bubbles: true }));
+        expect(sortSelectArgs(selection)).toEqual([
+            { row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 },
+            { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }]);
+    });
+
+    const sortSelectArgs = (args: SelectArgs) => {
+        return args.selection.sort((a, b) => {
+            return a.row - b.row || a.col - b.col;
+        });
+    };
 
     it('should select whole columns by dragging from left to right', () => {
         const grid = create({
@@ -171,11 +328,11 @@ describe('Grid', () => {
             rows: [ [1, 2, 3], [4, 5, 6] ],
         });
         fireEvent(grid.head.elements[0], new MouseEvent('mousedown'));
-        expectSelected([[0, 0], [1, 0]])
+        expectSelected([[0, 0], [1, 0]]);
         fireEvent(grid.head.elements[1], new MouseEvent('mousemove', { bubbles: true }));
-        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1]])
+        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1]]);
         fireEvent(grid.head.elements[2], new MouseEvent('mousemove', { bubbles: true }));
-        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]])
+        expectSelected([[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]]);
     });
 
     it('should clear all selected cells by del key', () => {
@@ -228,6 +385,7 @@ describe('Grid', () => {
         expect(fired[1].value).toBe('');
     });
 
+
     const expectSelected = (cells: Array<number[]>) => {
         const grid = getGrid();
         let expected = '';
@@ -235,7 +393,7 @@ describe('Grid', () => {
         grid.rows.forEach((row, ri) => {
             row.cells.forEach((cell, ci) => {
                 const a = cell.element.classList.contains('ced-selected') ? 'x' : '0';
-                const e = cells.find(c => c[0] == ri && c[1] == ci) ? 'x' : '0';
+                const e = cells.find(c => c[0] === ri && c[1] === ci) ? 'x' : '0';
                 actual += a;
                 expected += e;
             });
@@ -243,6 +401,22 @@ describe('Grid', () => {
             expected += '\n';
         });
         expect(actual).toEqual(expected);
-    }
+    };
+
+    const clickCell = (row: number, col: number) => {
+        const grid = getGrid();
+        const cell = grid.rows[row].cells[col].element;
+        fireEvent(cell, new MouseEvent('mousedown'));
+        fireEvent(cell, new MouseEvent('mouseup'));
+        return cell;
+    };
+
+    const clickColumnHead = (col: number) => {
+        const grid = getGrid();
+        const head = grid.head.elements[col];
+        fireEvent(head, new MouseEvent('mousedown'));
+        fireEvent(head, new MouseEvent('mouseup', { bubbles: true }));
+        return head;
+    };
 
 });

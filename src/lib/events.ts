@@ -26,7 +26,12 @@ export class EventEmitter {
     emit<TArgs extends EventArgs>(event: string, args: TArgs) {
         const handlers = this.handlers[event];
         if (handlers) {
-           handlers.forEach(handler => handler(args));
+           handlers.forEach(handler => {
+                try {
+                    handler(args);
+                }
+                catch {}
+            });
         }
     }
 }
