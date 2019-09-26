@@ -67,6 +67,7 @@ $cell-padding: 0.25em 0.5em;
         resize: none;
         font-size: inherit;
         font-family: inherit;
+        text-align: left;
     }
 
     .#{$class-row}:nth-child(odd) {

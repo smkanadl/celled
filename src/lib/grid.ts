@@ -1,7 +1,7 @@
 import { EventEmitter, EventHandler, EventHandlerBase } from './events';
 import { parseCSV, writeCSV } from './csv';
 
-export type CellValue = string|number;
+export type CellValue = string | number;
 
 export interface CellValueOptions {
     readonly?: boolean;
@@ -9,9 +9,9 @@ export interface CellValueOptions {
 }
 
 export interface GridOptions {
-    cols: Array<string|number>;
-    rows: Array<Array<CellValue|CellValueOptions>>;
-    input?: HTMLInputElement|(() => HTMLInputElement);
+    cols: Array<string | number>;
+    rows: Array<Array<CellValue | CellValueOptions>>;
+    input?: HTMLInputElement | (() => HTMLInputElement);
 }
 
 export interface InputArgs {
@@ -28,15 +28,15 @@ export interface SelectArgs {
 
 const CSS_PREFIX = 'ced';
 const CSS_CONTAINER = `${CSS_PREFIX}-grid-container`;
-const CSS_GRID      = `${CSS_PREFIX}-grid`;
-const CSS_ROW       = `${CSS_PREFIX}-row`;
-const CSS_CELL      = `${CSS_PREFIX}-cell`;
-const CSS_HEAD      = `${CSS_PREFIX}-head`;
-const CSS_RESIZER   = `${CSS_PREFIX}-resizer`;
-const CSS_EDITING   = `${CSS_PREFIX}-editing`;
-const CSS_ACTIVE    = `${CSS_PREFIX}-active`;
-const CSS_SELECTED  = `${CSS_PREFIX}-selected`;
-const CSS_READONLY  = `${CSS_PREFIX}-readonly`;
+const CSS_GRID = `${CSS_PREFIX}-grid`;
+const CSS_ROW = `${CSS_PREFIX}-row`;
+const CSS_CELL = `${CSS_PREFIX}-cell`;
+const CSS_HEAD = `${CSS_PREFIX}-head`;
+const CSS_RESIZER = `${CSS_PREFIX}-resizer`;
+const CSS_EDITING = `${CSS_PREFIX}-editing`;
+const CSS_ACTIVE = `${CSS_PREFIX}-active`;
+const CSS_SELECTED = `${CSS_PREFIX}-selected`;
+const CSS_READONLY = `${CSS_PREFIX}-readonly`;
 
 function css(className) {
     return '.' + className;
@@ -112,7 +112,7 @@ export class Grid {
         this.setCell(this.rows[row].cells[col], value);
     }
 
-    private createHeadCell(text: string|number, columnIndex: number) {
+    private createHeadCell(text: string | number, columnIndex: number) {
         const column = createElement(`<div class="${CSS_CELL}" data-ci="${columnIndex}"><span>${text}</span></div>`);
         const resizer = createElement(`<div class="${CSS_RESIZER}"></div>`);
         column.appendChild(resizer);
@@ -201,9 +201,9 @@ export class Grid {
             const rowIndex = +hoveredCell.parentElement.getAttribute('data-ri');
             if (!isNaN(cellIndex) && !isNaN(rowIndex)) {
                 const firstRow = Math.min(rowIndex, downRowIndex);
-                const lastRow  = Math.max(rowIndex, downRowIndex);
+                const lastRow = Math.max(rowIndex, downRowIndex);
                 const firstCol = Math.min(cellIndex, downCellIndex);
-                const lastCol  = Math.max(cellIndex, downCellIndex);
+                const lastCol = Math.max(cellIndex, downCellIndex);
                 const newSelectionIdentifier = rememberSelection(firstRow, firstCol, lastRow, lastCol);
                 if (selectionIdentifier !== newSelectionIdentifier) {
                     selectionIdentifier = newSelectionIdentifier;
@@ -239,13 +239,10 @@ export class Grid {
                     this.emitFocus();
                 }
                 else {
-                    this.hiddenInput.focus();  // focus to receive paste events
                     downRowIndex = rowIndex;
                     downCellIndex = cellIndex;
                     selectionIdentifier = rememberSelection(rowIndex, cellIndex, rowIndex, cellIndex);
-                    this.cells.forEach(c => c.select(false).activate(false));
-                    this.activeCell = cell.activate();
-                    this.emitSelect();
+                    this.activate(cell);
                     on(document, 'mouseup', mouseup);
                     on(document, 'mousemove', mousemove);
                 }
@@ -267,6 +264,35 @@ export class Grid {
         });
     }
 
+    private activate(cell: Cell, doActivate = true) {
+        if (this.activeCell) {
+            this.activeCell.activate(false);
+        }
+        let selectionChanged = false;
+        this.cells.forEach(c => {
+            selectionChanged = c === cell ? (c.selected() !== doActivate) : (selectionChanged || c.selected());
+            c.select(false);
+        });
+        this.activeCell = cell.select(doActivate).activate(doActivate);
+        if (selectionChanged) {
+            this.emitSelect();
+        }
+        this.hiddenInput.focus();  // focus to receive paste events
+    }
+
+    private moveActive(rowDelta: number, colDelta: number) {
+        const activeCell = this.activeCell;
+        if (activeCell) {
+            const nextRow = this.rows[activeCell.row + rowDelta];
+            if (nextRow) {
+                const cell = nextRow.cells[activeCell.col + colDelta];
+                if (cell) {
+                    this.activate(cell);
+                }
+            }
+        }
+    }
+
     private initKeys() {
         const hiddenInput = this.hiddenInput;
 
@@ -281,9 +307,21 @@ export class Grid {
                 });
                 e.preventDefault();
             }
+            if (keyCode === 37) {
+                this.moveActive(0, -1);
+            }
+            if (keyCode === 38) {
+                this.moveActive(-1, 0);
+            }
+            if (keyCode === 39) {
+                this.moveActive(0, 1);
+            }
+            if (keyCode === 40) {
+                this.moveActive(1, 0);
+            }
         });
 
-        const onInput = () => {
+        const onInput = (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
             if (activeCell && !activeCell.readonly && activeCell.input) {
                 this.updatValue(activeCell);
@@ -296,6 +334,12 @@ export class Grid {
         };
 
         on(this.cellInput, 'input', onInput);
+        on(this.cellInput, 'keydown', (e: KeyboardEvent) => {
+            if (e.keyCode === 13) {
+                this.moveActive(1, 0);
+                e.preventDefault();
+            }
+        });
 
         on(hiddenInput, 'keypress', (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
@@ -344,13 +388,13 @@ export class Grid {
             }
 
             const csv = [];
-            for (let ri = activeCell.row;; ri++) {
+            for (let ri = activeCell.row; ; ri++) {
                 const row = this.rows[ri];
                 const csvRow = [];
                 if (!row || !row.cells[activeCell.col] || !row.cells[activeCell.col].selected()) {
                     break;
                 }
-                for (let ci = activeCell.col;; ++ci) {
+                for (let ci = activeCell.col; ; ++ci) {
                     const cell = row.cells[ci];
                     if (!cell || !cell.selected()) {
                         break;
@@ -410,7 +454,7 @@ export class Grid {
     private emitSelect() {
         this.events.emit<SelectArgs>('select', {
             grid: this,
-            selection : this.cells.filter(c => c.selected()).map(c => ({
+            selection: this.cells.filter(c => c.selected()).map(c => ({
                 row: c.row,
                 col: c.col,
             })),
@@ -423,7 +467,7 @@ class Cell {
     input: HTMLInputElement;
     readonly = false;
 
-    constructor(public row: number, public col: number, value: CellValue|CellValueOptions) {
+    constructor(public row: number, public col: number, value: CellValue | CellValueOptions) {
         let text: string;
         if (typeof value === 'string' || typeof value === 'number') {
             text = value.toString();
@@ -513,7 +557,7 @@ class Row {
         this.element = createElement(`<div data-ri="${index}" class="${CSS_ROW}"></div>`) as Element;
     }
 
-    addCells(cells: Array<CellValue|CellValueOptions>) {
+    addCells(cells: Array<CellValue | CellValueOptions>) {
         cells.forEach((c, columnIndex) => {
             const cell = new Cell(this.index, columnIndex, c);
             this.cells.push(cell);

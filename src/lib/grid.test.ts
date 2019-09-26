@@ -344,7 +344,7 @@ describe('Grid', () => {
         const cell10 = grid.rows[1].cells[0].element;
         fireEvent(cell00, new MouseEvent('mousedown'));
         fireEvent(cell10, new MouseEvent('mousemove', { bubbles: true }));
-        fireEvent.keyDown(document.activeElement, { key: 'Delete', keyCode: 46 });
+        keyDown('Delete', 46);
 
         expect(grid.rows[0].values()).toEqual(['', '2']);
         expect(grid.rows[1].values()).toEqual(['', '4']);
@@ -357,7 +357,7 @@ describe('Grid', () => {
         });
         fireEvent(grid.head.elements[1], new MouseEvent('mousedown'));
         fireEvent(grid.head.elements[1], new MouseEvent('mouseup', { bubbles: true }));
-        fireEvent.keyDown(document.activeElement, { key: 'Delete', keyCode: 46 });
+        keyDown('Delete', 46);
         expect(grid.rows[0].values()).toEqual(['1', '']);
         expect(grid.rows[1].values()).toEqual(['3', '']);
     });
@@ -373,7 +373,7 @@ describe('Grid', () => {
         fireEvent(grid.rows[0].cells[1].element, new MouseEvent('mousedown'));
         fireEvent(grid.rows[1].cells[1].element, new MouseEvent('mousemove', { bubbles: true }));
         fireEvent(grid.rows[1].cells[1].element, new MouseEvent('mouseup'));
-        fireEvent.keyDown(document.activeElement, { key: 'Delete', keyCode: 46 });
+        keyDown('Delete', 46);
         expect(fired.length).toBe(2);
         expect(fired[0].grid).toBe(g);
         expect(fired[0].row).toBe(0);
@@ -383,6 +383,34 @@ describe('Grid', () => {
         expect(fired[1].row).toBe(1);
         expect(fired[1].col).toBe(1);
         expect(fired[1].value).toBe('');
+    });
+
+    it('should navigate with arrow keys', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+
+        clickCell(0, 0);
+        keyDown('ArrowRight', 39);
+        expectSelected([[0, 1]]);
+        keyDown('ArrowRight', 39);
+        expectSelected([[0, 1]]);
+
+        keyDown('ArrowDown', 40);
+        expectSelected([[1, 1]]);
+        keyDown('ArrowDown', 40);
+        expectSelected([[1, 1]]);
+
+        keyDown('ArrowLeft', 37);
+        expectSelected([[1, 0]]);
+        keyDown('ArrowLeft', 37);
+        expectSelected([[1, 0]]);
+
+        keyDown('ArrowUp', 38);
+        expectSelected([[0, 0]]);
+        keyDown('ArrowUp', 38);
+        expectSelected([[0, 0]]);
     });
 
 
@@ -418,5 +446,9 @@ describe('Grid', () => {
         fireEvent(head, new MouseEvent('mouseup', { bubbles: true }));
         return head;
     };
+
+    function keyDown(key: string, keyCode: number) {
+        fireEvent.keyDown(document.activeElement, { key, keyCode});
+    }
 
 });
