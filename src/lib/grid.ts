@@ -8,10 +8,13 @@ export interface CellValueOptions {
     value: CellValue;
 }
 
+export type RowOptions = Array<CellValue | CellValueOptions>;
+
 export interface GridOptions {
     cols: Array<string | number>;
-    rows: Array<Array<CellValue | CellValueOptions>>;
+    rows: Array<RowOptions>;
     input?: HTMLInputElement | (() => HTMLInputElement);
+    canAddRows?: boolean;
 }
 
 export interface InputArgs {
@@ -83,15 +86,8 @@ export class Grid {
         gridContainer.appendChild(grid);
         const head = query(container, css(CSS_HEAD));
         options.cols.forEach((c, index) => head.appendChild(this.createHeadCell(c, index)));
-        options.rows.forEach((r, index) => {
-            const row = new Row(index);
-            row.addCells(r);
-            rows.push(row);
-            grid.appendChild(row.element);
-        });
-        this.cells = this.rows.reduce((a, b) => a.concat(b.cells), [] as Cell[]);
         queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => c.style.width = c.offsetWidth + 'px');
-
+        this.createRows();
         this.initMouse();
         this.initKeys();
         this.initClipboard();
@@ -99,8 +95,8 @@ export class Grid {
 
     /**
      * Adds an event listener.
-     * Grid fires these events:S
-     * 'input', 'focus'
+     * Grid fires these events:
+     * 'input', 'focus', 'select'
      */
     on(event: 'input' | 'focus', handler: EventHandler<InputArgs>);
     on(event: 'select', handler: EventHandler<SelectArgs>);
@@ -110,6 +106,14 @@ export class Grid {
 
     update(row: number, col: number, value: string) {
         this.setCell(this.rows[row].cells[col], value);
+    }
+
+    addRows(rows: RowOptions[]) {
+        if (this.options.canAddRows) {
+            [].push.apply(this.options.rows, rows);
+            rows.forEach(r => this.createRow(r));
+            this.flattenCells();
+        }
     }
 
     private createHeadCell(text: string | number, columnIndex: number) {
@@ -184,6 +188,23 @@ export class Grid {
         return column;
     }
 
+    private createRow(r: RowOptions) {
+        const row = new Row(this.rows.length);
+        row.addCells(r);
+        this.rows.push(row);
+        this.grid.appendChild(row.element);
+    }
+
+    private createRows() {
+        this.rows = [];
+        this.options.rows.forEach(r => this.createRow(r));
+        this.flattenCells();
+    }
+
+    private flattenCells() {
+        this.cells = this.rows.reduce((a, b) => a.concat(b.cells), [] as Cell[]);
+    }
+
     private initMouse() {
         const rows = this.rows;
         let downCellIndex: number;
@@ -192,14 +213,25 @@ export class Grid {
         let selectionIdentifier: string = null;
         const rememberSelection = (r1, c1, r2, c2) => '' + r1 + c1 + r2 + c2;
 
-        const mousemove = (moveEvent: MouseEvent) => {
-            const hoveredCell = moveEvent.target as Element;
-            if (!hoveredCell || !hoveredCell.parentElement) {
+        const getTargetCell = (e: MouseEvent) => {
+            const cell = e.target as Element;
+            if (!cell || !cell.parentElement) {
                 return;
             }
-            const cellIndex = +hoveredCell.getAttribute('data-ci');
-            const rowIndex = +hoveredCell.parentElement.getAttribute('data-ri');
-            if (!isNaN(cellIndex) && !isNaN(rowIndex)) {
+            const cellIndexAttr = cell.getAttribute('data-ci');
+            const rowIndexAttr = cell.parentElement.getAttribute('data-ri');
+            const cellIndex = +cellIndexAttr;
+            const rowIndex = +rowIndexAttr;
+            if (cellIndexAttr && rowIndexAttr && !isNaN(cellIndex) && !isNaN(rowIndex)) {
+                return this.rows[rowIndex].cells[cellIndex];
+            }
+        };
+
+        const mousemove = (moveEvent: MouseEvent) => {
+            const targetCell = getTargetCell(moveEvent);
+            if (targetCell) {
+                const rowIndex = targetCell.row;
+                const cellIndex = targetCell.col;
                 const firstRow = Math.min(rowIndex, downRowIndex);
                 const lastRow = Math.max(rowIndex, downRowIndex);
                 const firstCol = Math.min(cellIndex, downCellIndex);
@@ -223,14 +255,12 @@ export class Grid {
             off(document, 'mouseup', mouseup);
         };
 
-        rows.forEach((row, rowIndex) => row.cells.forEach((cell, cellIndex) => {
-            const cellElement = cell.element;
-            let lastMouseDown = Date.now();
-            on(cellElement, 'mousedown', (e: MouseEvent) => {
-
+        let lastMouseDown = Date.now();
+        on(this.grid, 'mousedown', (e: MouseEvent) => {
+            const cell = getTargetCell(e);
+            if (cell) {
                 const timeSinceLast = Date.now() - lastMouseDown;
                 lastMouseDown = Date.now();
-
                 if (cell.input) {
                     return;
                 }
@@ -239,6 +269,8 @@ export class Grid {
                     this.emitFocus();
                 }
                 else {
+                    const rowIndex = cell.row;
+                    const cellIndex = cell.col;
                     downRowIndex = rowIndex;
                     downCellIndex = cellIndex;
                     selectionIdentifier = rememberSelection(rowIndex, cellIndex, rowIndex, cellIndex);
@@ -247,8 +279,8 @@ export class Grid {
                     on(document, 'mousemove', mousemove);
                 }
                 e.preventDefault();
-            });
-        }));
+            }
+        });
 
         on(document, 'mouseup', (e: MouseEvent) => {
             if (this.activeCell) {
@@ -565,8 +597,6 @@ class Row {
         });
     }
 }
-
-
 
 // ----
 function query(elOrCss, cssSelector?): Element {

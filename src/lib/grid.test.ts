@@ -108,13 +108,13 @@ describe('Grid', () => {
         });
         const cell1 = grid.rows[0].cells[0].element;
         const cell2 = grid.rows[0].cells[1].element;
-        fireEvent(cell1, new MouseEvent('mousedown'));
-        fireEvent(cell1, new MouseEvent('mouseup'));
+        fireEvent(cell1, new MouseEvent('mousedown', { bubbles: true }));
+        fireEvent(cell1, new MouseEvent('mouseup', { bubbles: true }));
         expect(cell1.className).toContain('ced-selected');
         expect(cell2.className).not.toContain('ced-selected');
 
-        fireEvent(cell2, new MouseEvent('mousedown'));
-        fireEvent(cell2, new MouseEvent('mouseup'));
+        fireEvent(cell2, new MouseEvent('mousedown', { bubbles: true }));
+        fireEvent(cell2, new MouseEvent('mouseup', { bubbles: true }));
         expect(cell1.className).not.toContain('ced-selected');
         expect(cell2.className).toContain('ced-selected');
     });
@@ -169,7 +169,7 @@ describe('Grid', () => {
         const cell01 = grid.rows[0].cells[1].element;
         const cell10 = grid.rows[1].cells[0].element;
         const cell11 = grid.rows[1].cells[1].element;
-        fireEvent(cell00, new MouseEvent('mousedown'));
+        fireEvent(cell00, new MouseEvent('mousedown', { bubbles: true }));
         expectSelected([[0, 0]]);
         fireEvent(cell00, new MouseEvent('mousemove', { bubbles: true }));
         expectSelected([[0, 0]]);
@@ -197,7 +197,7 @@ describe('Grid', () => {
         const cell01 = grid.rows[0].cells[1].element;
         const cell10 = grid.rows[1].cells[0].element;
         const cell11 = grid.rows[1].cells[1].element;
-        fireEvent(cell00, new MouseEvent('mousedown'));
+        fireEvent(cell00, new MouseEvent('mousedown', { bubbles: true }));
         expect(sortSelectArgs(selection)).toEqual([{ row: 0, col: 0 }]);
 
         fireEvent(cell00, new MouseEvent('mousemove', { bubbles: true }));
@@ -232,7 +232,7 @@ describe('Grid', () => {
         const cell00 = grid.rows[0].cells[0].element;
         const cell01 = grid.rows[0].cells[1].element;
         const cell11 = grid.rows[1].cells[1].element;
-        fireEvent(cell00, new MouseEvent('mousedown'));
+        fireEvent(cell00, new MouseEvent('mousedown', { bubbles: true }));
         fireEvent(cell00, new MouseEvent('mousemove', { bubbles: true }));
 
         fireEvent(cell01, new MouseEvent('mousemove', { bubbles: true }));
@@ -253,7 +253,7 @@ describe('Grid', () => {
             rows: [ [1, 2], [3, 4] ],
         });
         const cell00 = grid.rows[0].cells[0].element;
-        fireEvent(cell00, new MouseEvent('mousedown'));
+        fireEvent(cell00, new MouseEvent('mousedown', { bubbles: true }));
         fireEvent(document, new MouseEvent('mousemove', { bubbles: true }));
     });
 
@@ -286,7 +286,7 @@ describe('Grid', () => {
             cols: ['a', 'b', 'c'],
             rows: [ [1, 2, 3], [4, 5, 6] ],
         });
-        fireEvent(grid.head.elements[2], new MouseEvent('mousedown'));
+        fireEvent(grid.head.elements[2], new MouseEvent('mousedown', { bubbles: true }));
         expectSelected([[0, 2], [1, 2]]);
         fireEvent(grid.head.elements[1], new MouseEvent('mousemove', { bubbles: true }));
         expectSelected([[0, 1], [1, 1], [0, 2], [1, 2]]);
@@ -303,7 +303,7 @@ describe('Grid', () => {
         let selection: SelectArgs;
         g.on('select', args => selection = args);
 
-        fireEvent(grid.head.elements[2], new MouseEvent('mousedown'));
+        fireEvent(grid.head.elements[2], new MouseEvent('mousedown', { bubbles: true }));
         expect(sortSelectArgs(selection)).toEqual([{ row: 0, col: 2}, { row: 1, col: 2}]);
 
         fireEvent(grid.head.elements[1], new MouseEvent('mousemove', { bubbles: true }));
@@ -327,7 +327,7 @@ describe('Grid', () => {
             cols: ['a', 'b', 'c'],
             rows: [ [1, 2, 3], [4, 5, 6] ],
         });
-        fireEvent(grid.head.elements[0], new MouseEvent('mousedown'));
+        fireEvent(grid.head.elements[0], new MouseEvent('mousedown', { bubbles: true }));
         expectSelected([[0, 0], [1, 0]]);
         fireEvent(grid.head.elements[1], new MouseEvent('mousemove', { bubbles: true }));
         expectSelected([[0, 0], [1, 0], [0, 1], [1, 1]]);
@@ -342,7 +342,7 @@ describe('Grid', () => {
         });
         const cell00 = grid.rows[0].cells[0].element;
         const cell10 = grid.rows[1].cells[0].element;
-        fireEvent(cell00, new MouseEvent('mousedown'));
+        fireEvent(cell00, new MouseEvent('mousedown', { bubbles: true }));
         fireEvent(cell10, new MouseEvent('mousemove', { bubbles: true }));
         keyDown('Delete', 46);
 
@@ -355,7 +355,7 @@ describe('Grid', () => {
             cols: ['a', 'b'],
             rows: [ [1, 2], [3, 4] ],
         });
-        fireEvent(grid.head.elements[1], new MouseEvent('mousedown'));
+        fireEvent(grid.head.elements[1], new MouseEvent('mousedown', { bubbles: true }));
         fireEvent(grid.head.elements[1], new MouseEvent('mouseup', { bubbles: true }));
         keyDown('Delete', 46);
         expect(grid.rows[0].values()).toEqual(['1', '']);
@@ -370,9 +370,9 @@ describe('Grid', () => {
         const fired: InputArgs[] = [];
         g.on('input', args => fired.push(args));
         const grid = getGrid();
-        fireEvent(grid.rows[0].cells[1].element, new MouseEvent('mousedown'));
+        fireEvent(grid.rows[0].cells[1].element, new MouseEvent('mousedown', { bubbles: true }));
         fireEvent(grid.rows[1].cells[1].element, new MouseEvent('mousemove', { bubbles: true }));
-        fireEvent(grid.rows[1].cells[1].element, new MouseEvent('mouseup'));
+        fireEvent(grid.rows[1].cells[1].element, new MouseEvent('mouseup', { bubbles: true }));
         keyDown('Delete', 46);
         expect(fired.length).toBe(2);
         expect(fired[0].grid).toBe(g);
@@ -413,8 +413,80 @@ describe('Grid', () => {
         expectSelected([[0, 0]]);
     });
 
+    it('should add rows', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+            canAddRows: true,
+        });
+        g.addRows([[5, 6], [7, 8]]);
+        const grid = getGrid();
+        expect(grid.head.values).toEqual(['a', 'b']);
+        expect(grid.rows.map(r => r.values())).toEqual([
+            ['1', '2'], ['3', '4'], ['5', '6'], ['7', '8']
+        ]);
+    });
 
-    const expectSelected = (cells: Array<number[]>) => {
+    it('should not add rows if canAddRows is false', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        });
+        g.addRows([[5, 6], [7, 8]]);
+        const grid = getGrid();
+        expect(grid.head.values).toEqual(['a', 'b']);
+        expect(grid.rows.map(r => r.values())).toEqual([
+            ['1', '2'], ['3', '4']
+        ]);
+    });
+
+    it('should select added rows', () => {
+        createGrid({
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+            canAddRows: true,
+        }).addRows([[5, 6], [7, 8]]);
+        const grid = getGrid();
+        // single clik
+        clickCell(2, 1);
+        expectSelected([[2, 1]]);
+        clickCell(3, 0);
+        expectSelected([[3, 0]]);
+
+        // column click
+        clickColumnHead(1);
+        expectSelected([[0, 1], [1, 1], [2, 1], [3, 1]]);
+        clickColumnHead(0);
+        expectSelected([[0, 0], [1, 0], [2, 0], [3, 0]]);
+
+        // dragging
+        fireEvent(grid.rows[2].cells[1].element, new MouseEvent('mousedown', { bubbles: true }));
+        fireEvent(grid.rows[2].cells[0].element, new MouseEvent('mousemove', { bubbles: true }));
+        expectSelected([[2, 0], [2, 1]]);
+    });
+
+    it('should edit added rows', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+            canAddRows: true,
+        };
+        const g = createGrid(options);
+        g.addRows([[5, 6], [7, 8]]);
+        const fired: InputArgs[] = [];
+        g.on('input', args => fired.push(args));
+        const grid = getGrid();
+        clickCell(3, 0);
+        keyDown('Delete', 46);
+        expect(grid.rows[3].values()).toEqual(['', '8']);
+        expect(options.rows[3][0]).toBe('');
+        expect(fired.length).toBe(1);
+        expect(fired[0].row).toBe(3);
+        expect(fired[0].col).toBe(0);
+        expect(fired[0].value).toBe('');
+    });
+
+    function expectSelected(cells: Array<number[]>) {
         const grid = getGrid();
         let expected = '';
         let actual = '';
@@ -429,23 +501,23 @@ describe('Grid', () => {
             expected += '\n';
         });
         expect(actual).toEqual(expected);
-    };
+    }
 
-    const clickCell = (row: number, col: number) => {
+    function clickCell(row: number, col: number){
         const grid = getGrid();
         const cell = grid.rows[row].cells[col].element;
-        fireEvent(cell, new MouseEvent('mousedown'));
-        fireEvent(cell, new MouseEvent('mouseup'));
+        fireEvent(cell, new MouseEvent('mousedown', { bubbles: true }));
+        fireEvent(cell, new MouseEvent('mouseup', { bubbles: true }));
         return cell;
-    };
+    }
 
-    const clickColumnHead = (col: number) => {
+    function clickColumnHead(col: number) {
         const grid = getGrid();
         const head = grid.head.elements[col];
-        fireEvent(head, new MouseEvent('mousedown'));
+        fireEvent(head, new MouseEvent('mousedown', { bubbles: true }));
         fireEvent(head, new MouseEvent('mouseup', { bubbles: true }));
         return head;
-    };
+    }
 
     function keyDown(key: string, keyCode: number) {
         fireEvent.keyDown(document.activeElement, { key, keyCode});
