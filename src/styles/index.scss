@@ -57,7 +57,7 @@ $cell-padding: 0.25em 0.5em;
         display: table-row;
     }
 
-    input {
+    input, input[type=number], input[type=text] {
         border: 0;
         margin: 0;
         padding: $cell-padding;
