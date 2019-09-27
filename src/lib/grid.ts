@@ -111,7 +111,10 @@ export class Grid {
     addRows(rows: RowOptions[]) {
         if (this.options.canAddRows) {
             [].push.apply(this.options.rows, rows);
-            rows.forEach(r => this.createRow(r));
+            rows.forEach(r => {
+                const newRow = this.createRow(r);
+                newRow.cells.forEach(c => this.emitInput(c));
+            });
             this.flattenCells();
         }
     }
@@ -188,11 +191,12 @@ export class Grid {
         return column;
     }
 
-    private createRow(r: RowOptions) {
+    private createRow(r: RowOptions): Row {
         const row = new Row(this.rows.length);
         row.addCells(r);
         this.rows.push(row);
         this.grid.appendChild(row.element);
+        return row;
     }
 
     private createRows() {

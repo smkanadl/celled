@@ -440,6 +440,23 @@ describe('Grid', () => {
         ]);
     });
 
+    it('should fire input event for added rows', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+            canAddRows: true,
+        };
+        const g = createGrid(options);
+        const fired: InputArgs[] = [];
+        g.on('input', args => fired.push(args));
+
+        g.addRows([[5, 6], [7, 8]]);
+        expect(fired.length).toBe(4);
+        expect(fired[0].row).toBe(2);
+        expect(fired[0].col).toBe(0);
+        expect(fired[0].value).toBe('5');
+    });
+
     it('should select added rows', () => {
         createGrid({
             cols: ['a', 'b'],
