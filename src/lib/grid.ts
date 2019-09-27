@@ -290,8 +290,10 @@ export class Grid {
                         return;
                     }
                 }
-                this.cells.forEach(c => c.select(false).activate(false));
-                this.emitSelect();
+                this.activeCell.activate(false);
+                if (this.unselect()) {
+                    this.emitSelect();
+                }
             }
         });
     }
@@ -451,8 +453,13 @@ export class Grid {
         }
     }
 
-    private unselect() {
-        this.cells.forEach(c => c.select(false));
+    private unselect(): boolean {
+        let selectionChanged = false;
+        this.cells.forEach(c => {
+            selectionChanged = selectionChanged || c.selected();
+            c.select(false);
+        });
+        return selectionChanged;
     }
 
     private updatValue(cell: Cell) {
