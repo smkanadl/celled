@@ -398,6 +398,10 @@ export class Grid {
             }
             csv.forEach((csvRow, csvRowIndex) => {
                 const tableRow = this.rows[activeCell.row + csvRowIndex];
+                if (!tableRow && this.options.canAddRows) {
+                    const prevRow = this.rows[activeCell.row];
+                    this.addRows([prevRow.cells.map(c => c.value())]);
+                }
                 const tableCol = activeCell.col;
                 const isLastEmptyRow = csvRow.length === 1 && csvRow[0] === '';
                 if (tableRow && !isLastEmptyRow) {
