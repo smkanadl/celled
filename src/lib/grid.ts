@@ -370,7 +370,13 @@ export class Grid {
         on(this.cellInput, 'input', onInput);
         on(this.cellInput, 'keydown', (e: KeyboardEvent) => {
             if (e.keyCode === 13) {
+                // ENTER, stop edit and move to next row
                 this.moveActive(1, 0);
+                e.preventDefault();
+            }
+            if (e.keyCode === 27) {
+                // ESCAPE, stop edit but stay at same cell
+                this.moveActive(0, 0);
                 e.preventDefault();
             }
         });
