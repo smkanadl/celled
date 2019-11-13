@@ -73,10 +73,10 @@ export class Grid {
             remove(this.cellInput);
         }
         else {
-            this.cellInput = createElement<HTMLInputElement>(`<input type="text" >`);
+            this.cellInput = createElement<HTMLInputElement>(`<input id="celled-cell-input" type="text" >`);
         }
         this.hiddenInput = createElement(
-            '<div style="position:absolute; z-index:-1; left:2px; top: 2px;" contenteditable tabindex="0"></div>');
+            '<div id="celled-hidden-input" style="position:absolute; z-index:-1; left:2px; top: 2px;" contenteditable tabindex="0"></div>');
         const gridContainer = createElement(`<div class="${CSS_CONTAINER}"></div>`);
         const grid = this.grid = createElement(
             `<div class="${CSS_GRID}"><div class="${CSS_ROW} ${CSS_HEAD}"></div></div>`);
@@ -117,6 +117,10 @@ export class Grid {
             });
             this.flattenCells();
         }
+    }
+
+    addRow() {
+        this.addRows([this.options.cols.map(c => '')]);
     }
 
     private createHeadCell(text: string | number, columnIndex: number) {
@@ -321,7 +325,12 @@ export class Grid {
     private moveActive(rowDelta: number, colDelta: number) {
         const activeCell = this.activeCell;
         if (activeCell) {
-            const nextRow = this.rows[activeCell.row + rowDelta];
+            const rows = this.rows;
+            const rowIndex = activeCell.row + rowDelta;
+            while (this.options.canAddRows && rowIndex >= rows.length) {
+                this.addRow();
+            }
+            const nextRow = rows[rowIndex];
             if (nextRow) {
                 const cell = nextRow.cells[activeCell.col + colDelta];
                 if (cell) {
@@ -375,6 +384,7 @@ export class Grid {
         on(this.cellInput, 'keydown', (e: KeyboardEvent) => {
             if (e.keyCode === 13) {
                 // ENTER, stop edit and move to next row
+                this.moveActive(0, 0);
                 this.moveActive(1, 0);
                 e.preventDefault();
             }
@@ -583,17 +593,15 @@ class Cell {
         }
     }
 
-    startEdit(input: HTMLInputElement, clear = false, text = '') {
+    startEdit(input: HTMLInputElement, select = false) {
         if (this.readonly) {
             return;
         }
         const element = this.element;
         this.input = input;
-        if (!clear) {
-            input.value = element.innerHTML;
-        }
-        else {
-            input.value = text;
+        input.value = element.innerHTML;
+        if (select) {
+            input.select();   
         }
         input.style.width = element.offsetWidth - 2 + 'px';
         element.classList.add(CSS_EDITING);

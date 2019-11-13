@@ -1,5 +1,6 @@
 import { Grid, GridOptions, InputArgs, SelectArgs } from './grid';
 import { getByText, fireEvent } from '@testing-library/dom';
+import { clearLine } from 'readline';
 
 function queryAll<T extends Element>(elementOrCss: ParentNode|string, cssOrEmpty?: string): T[] {
     let element: ParentNode = document;
@@ -246,7 +247,6 @@ describe('Grid', () => {
         expect(firedCount).toBe(3);
     });
 
-
     it('should not fail if dragging outside document', () => {
         const grid = create({
             cols: ['a', 'b'],
@@ -413,6 +413,111 @@ describe('Grid', () => {
         expectSelected([[0, 0]]);
     });
 
+    it('should not change cell if enter end escape', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        };
+        const grid = create(options);
+
+        clickCell(0, 0);
+        keyPress('Enter', 13);
+        keyDown('Escape', 27);
+        expect(grid.rows[0].values()).toEqual(['1', '2']);
+        expect(grid.rows[1].values()).toEqual(['3', '4']);
+        expect(options.rows).toEqual([ [1, 2], [3, 4] ]);
+    });
+
+    it('should not change cell if enter end enter', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        };
+        const grid = create(options);
+
+        clickCell(0, 0);
+        keyPress('Enter', 13);
+        keyDown('Enter', 13);
+        expect(grid.rows[0].values()).toEqual(['1', '2']);
+        expect(grid.rows[1].values()).toEqual(['3', '4']);
+        expect(options.rows).toEqual([ [1, 2], [3, 4] ]);
+    });
+
+    it('should change cell if enter - input - enter', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        };
+        const grid = create(options);
+
+        clickCell(0, 0);
+        keyPress('Enter', 13);
+        setValue('e');
+        keyDown('Enter', 13);
+        expect(grid.rows[0].values()).toEqual(['e', '2']);
+        expect(grid.rows[1].values()).toEqual(['3', '4']);
+        expect(options.rows).toEqual([ ['e', 2], [3, 4] ]);
+    });
+
+    it('should move to next cell on enter', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+        };
+        const g = createGrid(options);
+        const grid = getGrid();
+
+        clickCell(0, 0);
+        keyPress('Enter', 13);
+        setValue('e');
+        keyDown('Enter', 13);
+        expect(grid.rows[0].values()).toEqual(['e', '2']);
+        expect(grid.rows[1].values()).toEqual(['3', '4']);
+        expectSelected([[1, 0]]);
+    });
+
+    it('should exit edit on enter in last cell if canAddRows is false', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+            canAddRows: false
+        };
+        const g = createGrid(options);
+        const grid = getGrid();
+
+        clickCell(1, 0);
+        expect(isEditing(1,0)).toBe(false);
+        keyPress('Enter', 13);
+        expect(isEditing(1,0)).toBe(true);
+        setValue('e');
+        keyDown('Enter', 13);
+        expect(isEditing(1,0)).toBe(false);
+        keyPress('Enter', 13);
+        expect(isEditing(1,0)).toBe(true);
+    });
+
+    it('should add row on enter in last cell if canAddRows is true', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+            canAddRows: true
+        };
+        const g = createGrid(options);
+
+        clickCell(1, 0);
+        keyPress('Enter', 13);
+        expect(isEditing(1, 0)).toBe(true);
+        keyDown('Enter', 13);
+        expect(isEditing(1, 0)).toBe(false);
+
+        const grid = getGrid();
+        expect(options.rows).toEqual([ [1, 2], [3, 4], ['', ''] ]);
+        expect(grid.rows.map(r => r.values())).toEqual([
+            ['1', '2'], ['3', '4'], ['', '']
+        ]);
+        expectSelected([[2, 0]]);
+    });
+
     it('should add rows', () => {
         const g = createGrid({
             cols: ['a', 'b'],
@@ -520,6 +625,11 @@ describe('Grid', () => {
         expect(actual).toEqual(expected);
     }
 
+    function isEditing(rowIndex, colIndex) {
+        const grid = getGrid();
+        return grid.rows[rowIndex].cells[colIndex].element.classList.contains('ced-editing');
+    }
+
     function clickCell(row: number, col: number){
         const grid = getGrid();
         const cell = grid.rows[row].cells[col].element;
@@ -537,7 +647,18 @@ describe('Grid', () => {
     }
 
     function keyDown(key: string, keyCode: number) {
-        fireEvent.keyDown(document.activeElement, { key, keyCode});
+        fireEvent.keyDown(document.activeElement, { key, keyCode });
+    }
+
+    function keyPress(key: string, keyCode: number) {
+        fireEvent.keyPress(document.activeElement, { key, keyCode });
+    }
+
+    function setValue(value: string) {
+        if (document.activeElement.tagName.toLowerCase() === 'input') {
+            fireEvent.input(document.activeElement, { target: { value } });
+            fireEvent.change(document.activeElement, { target: { value } });
+        }
     }
 
 });
