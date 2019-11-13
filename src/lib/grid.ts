@@ -24,6 +24,7 @@ export interface InputArgs {
     value: string;
 }
 
+
 export interface SelectArgs {
     grid: Grid;
     selection: Array<{ row: number, col: number }>;
@@ -57,8 +58,11 @@ export class Grid {
     private options: GridOptions;
     private cellInput: HTMLInputElement;
 
-    constructor(container: string | Element) {
+    constructor(container: string | Element, options?: GridOptions) {
         this.container = typeof container === 'string' ? query(container) : container;
+        if (options) {
+            this.init(options);
+        }
     }
 
     init(options: GridOptions) {
@@ -322,12 +326,12 @@ export class Grid {
         this.hiddenInput.focus();  // focus to receive paste events
     }
 
-    private moveActive(rowDelta: number, colDelta: number) {
+    private moveActive(rowDelta: number, colDelta: number, addRows = false) {
         const activeCell = this.activeCell;
         if (activeCell) {
             const rows = this.rows;
             const rowIndex = activeCell.row + rowDelta;
-            while (this.options.canAddRows && rowIndex >= rows.length) {
+            while (addRows && this.options.canAddRows && rowIndex >= rows.length) {
                 this.addRow();
             }
             const nextRow = rows[rowIndex];
@@ -385,7 +389,7 @@ export class Grid {
             if (e.keyCode === 13) {
                 // ENTER, stop edit and move to next row
                 this.moveActive(0, 0);
-                this.moveActive(1, 0);
+                this.moveActive(1, 0, true);
                 e.preventDefault();
             }
             if (e.keyCode === 27) {

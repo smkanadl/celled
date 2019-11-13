@@ -505,6 +505,25 @@ describe('Grid', () => {
         const g = createGrid(options);
 
         clickCell(1, 0);
+        keyDown('ArrowDown', 40);
+
+        const grid = getGrid();
+        expect(options.rows).toEqual([ [1, 2], [3, 4] ]);
+        expect(grid.rows.map(r => r.values())).toEqual([
+            ['1', '2'], ['3', '4']
+        ]);
+        expectSelected([[1, 0]]);
+    });
+
+    it('should not add row on arrow down in last cell if canAddRows is true', () => {
+        const options = {
+            cols: ['a', 'b'],
+            rows: [ [1, 2], [3, 4] ],
+            canAddRows: true
+        };
+        const g = createGrid(options);
+
+        clickCell(1, 0);
         keyPress('Enter', 13);
         expect(isEditing(1, 0)).toBe(true);
         keyDown('Enter', 13);
@@ -516,7 +535,7 @@ describe('Grid', () => {
             ['1', '2'], ['3', '4'], ['', '']
         ]);
         expectSelected([[2, 0]]);
-    });
+    });    
 
     it('should add rows', () => {
         const g = createGrid({
