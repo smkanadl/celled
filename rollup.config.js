@@ -5,6 +5,7 @@ import commonjs from 'rollup-plugin-commonjs';
 import nodeResolve from 'rollup-plugin-node-resolve';
 import sourceMaps from 'rollup-plugin-sourcemaps';
 import scss from 'rollup-plugin-scss';
+import copy from 'rollup-plugin-copy';
 
 export default {
     input: 'src/celled.ts',
@@ -22,15 +23,19 @@ export default {
     plugins: [
         nodeResolve(),
         commonjs(),
-        typescript({ useTsconfigDeclarationDir: true }),
+        typescript({ 
+            useTsconfigDeclarationDir: true,
+            objectHashIgnoreUnknownHack: true,
+        }),
         scss(),
         terser({
             include: [/^.+\.min\.js$/],
         }),
         sourceMaps(),
-        // typescript({
-        //     typescript: require('typescript'),
-        // }),
-        //   terser() // minifies generated bundles
+        copy({
+            targets: [
+              { src: 'src/index.html', dest: 'dist' },
+            ],
+        })
     ]
 };

@@ -8,7 +8,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "rollup -c",
+    "build": "npm run build:clear && npm run build:bundle && npm run build:docs",
+    "build:clear": "rimraf dist docs",
+    "build:bundle": "rollup -c",
+    "build:docs": "copyfiles -u 1 dist/* docs",
     "start": "rollup -cw",
     "test": "jest --watchAll",
     "release": "npm run build && npm publish"
@@ -23,9 +26,12 @@
   "devDependencies": {
     "@testing-library/dom": "^6.3.0",
     "@types/jest": "^24.0.18",
+    "copyfiles": "^2.1.1",
     "jest": "^24.9.0",
+    "rimraf": "^3.0.0",
     "rollup": "^1.21.4",
     "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-copy": "^3.1.0",
     "rollup-plugin-node-resolve": "^5.2.0",
     "rollup-plugin-scss": "^1.0.2",
     "rollup-plugin-sourcemaps": "^0.4.2",

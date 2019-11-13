@@ -1,0 +1,60 @@
+.ced-grid-container {
+  position: relative; }
+
+.ced-grid {
+  display: table;
+  border-collapse: collapse;
+  width: 100%;
+  outline: none;
+  color: #333;
+  background: #fff; }
+  .ced-grid, .ced-grid *, .ced-grid *::before, .ced-grid *::after {
+    box-sizing: border-box; }
+  .ced-grid .ced-head {
+    font-weight: 700; }
+    .ced-grid .ced-head.ced-row .ced-cell {
+      background: #eee; }
+  .ced-grid .ced-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: transparent;
+    cursor: col-resize; }
+  .ced-grid .ced-row {
+    display: table-row; }
+  .ced-grid input, .ced-grid input[type=number], .ced-grid input[type=text] {
+    border: 0;
+    margin: 0;
+    padding: 0.25em 0.5em;
+    outline: none;
+    color: inherit;
+    overflow: hidden;
+    resize: none;
+    font-size: inherit;
+    font-family: inherit;
+    text-align: left; }
+  .ced-grid .ced-row:nth-child(odd) .ced-cell:not(.ced-selected):not(.ced-active) {
+    background: #eee; }
+  .ced-grid .ced-row .ced-cell {
+    cursor: default;
+    position: relative;
+    display: table-cell;
+    border: 1px solid #ccc;
+    padding: 0.25em 0.5em;
+    height: 2.1em;
+    line-height: 1.5em;
+    vertical-align: middle;
+    background: #fff;
+    background-clip: padding-box !important; }
+    .ced-grid .ced-row .ced-cell.ced-selected.ced-editing {
+      background: #fff;
+      color: #333;
+      padding: 0; }
+  .ced-grid .ced-cell.ced-selected.ced-active, .ced-grid .ced-cell.ced-active {
+    background: #0056b3;
+    color: #fff; }
+  .ced-grid .ced-cell.ced-selected {
+    background: #4683c5;
+    color: #fff; }
