@@ -152,11 +152,11 @@ var Grid = /** @class */ (function () {
         gridContainer.appendChild(grid);
         var head = query(container, css(CSS_HEAD));
         options.cols.forEach(function (c, index) { return head.appendChild(_this.createHeadCell(c, index)); });
-        queryAll(head, css(CSS_CELL)).forEach(function (c) { return c.style.width = c.offsetWidth + 'px'; });
         this.createRows();
         this.initMouse();
         this.initKeys();
         this.initClipboard();
+        queryAll(head, css(CSS_CELL)).forEach(function (c) { return c.style.width = c.offsetWidth + 'px'; });
     };
     Grid.prototype.on = function (event, handler) {
         this.events.addHandler(event, handler);

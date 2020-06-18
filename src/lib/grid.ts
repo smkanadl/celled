@@ -90,11 +90,11 @@ export class Grid {
         gridContainer.appendChild(grid);
         const head = query(container, css(CSS_HEAD));
         options.cols.forEach((c, index) => head.appendChild(this.createHeadCell(c, index)));
-        queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => c.style.width = c.offsetWidth + 'px');
         this.createRows();
         this.initMouse();
         this.initKeys();
         this.initClipboard();
+        queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => c.style.width = c.offsetWidth + 'px');
     }
 
     /**
