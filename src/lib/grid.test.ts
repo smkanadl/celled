@@ -486,14 +486,14 @@ describe('Grid', () => {
         const grid = getGrid();
 
         clickCell(1, 0);
-        expect(isEditing(1,0)).toBe(false);
+        expect(isEditing(1, 0)).toBe(false);
         keyPress('Enter', 13);
-        expect(isEditing(1,0)).toBe(true);
+        expect(isEditing(1, 0)).toBe(true);
         setValue('e');
         keyDown('Enter', 13);
-        expect(isEditing(1,0)).toBe(false);
+        expect(isEditing(1, 0)).toBe(false);
         keyPress('Enter', 13);
-        expect(isEditing(1,0)).toBe(true);
+        expect(isEditing(1, 0)).toBe(true);
     });
 
     it('should add row on enter in last cell if canAddRows is true', () => {
@@ -535,7 +535,7 @@ describe('Grid', () => {
             ['1', '2'], ['3', '4'], ['', '']
         ]);
         expectSelected([[2, 0]]);
-    });    
+    });
 
     it('should add rows', () => {
         const g = createGrid({

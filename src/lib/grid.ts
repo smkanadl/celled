@@ -24,7 +24,6 @@ export interface InputArgs {
     value: string;
 }
 
-
 export interface SelectArgs {
     grid: Grid;
     selection: Array<{ row: number, col: number }>;
@@ -54,9 +53,10 @@ export class Grid {
     private cells: Cell[] = [];
     private activeCell: Cell;
     private events: EventEmitter = new EventEmitter();
-    private hiddenInput: HTMLElement;
     private options: GridOptions;
     private cellInput: HTMLInputElement;
+    private hiddenInput: HTMLElement;
+    private cleanups: Array<() => any> = [];
 
     constructor(container: string | Element, options?: GridOptions) {
         this.container = typeof container === 'string' ? query(container) : container;
@@ -95,6 +95,17 @@ export class Grid {
         this.initKeys();
         this.initClipboard();
         queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => c.style.width = c.offsetWidth + 'px');
+    }
+
+    destroy() {
+        this.cleanups.forEach(c => c());
+        this.cleanups.length = 0;
+        remove(this.grid);
+        this.grid = null;
+        this.hiddenInput = null;
+        this.cellInput = null;
+        this.rows = null;
+        this.cells = null;
     }
 
     /**
@@ -268,7 +279,7 @@ export class Grid {
         };
 
         let lastMouseDown = Date.now();
-        on(this.grid, 'mousedown', (e: MouseEvent) => {
+        const cleanupMousedown = on(this.grid, 'mousedown', (e: MouseEvent) => {
             const cell = getTargetCell(e);
             if (cell) {
                 const timeSinceLast = Date.now() - lastMouseDown;
@@ -293,8 +304,9 @@ export class Grid {
                 e.preventDefault();
             }
         });
+        this.cleanups.push(cleanupMousedown);
 
-        on(document, 'mouseup', (e: MouseEvent) => {
+        const cleanupMouseup = on(document, 'mouseup', (e: MouseEvent) => {
             if (this.activeCell) {
                 // Unselect all if was click outside of the grid.
                 for (let target = e.target as Node; target; target = target.parentNode) {
@@ -308,6 +320,7 @@ export class Grid {
                 }
             }
         });
+        this.cleanups.push(cleanupMouseup);
     }
 
     private activate(cell: Cell, doActivate = true) {
@@ -346,8 +359,9 @@ export class Grid {
 
     private initKeys() {
         const hiddenInput = this.hiddenInput;
+        const cellInput = this.cellInput;
 
-        on(hiddenInput, 'keydown', (e: KeyboardEvent) => {
+        this.cleanups.push(on(hiddenInput, 'keydown', (e: KeyboardEvent) => {
             e = e || window.event as KeyboardEvent;
             const keyCode = e.keyCode;
             if (keyCode === 46) {  // del
@@ -370,7 +384,7 @@ export class Grid {
             if (keyCode === 40) {
                 this.moveActive(1, 0);
             }
-        });
+        }));
 
         const onInput = (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
@@ -384,8 +398,8 @@ export class Grid {
             }
         };
 
-        on(this.cellInput, 'input', onInput);
-        on(this.cellInput, 'keydown', (e: KeyboardEvent) => {
+        this.cleanups.push(on(cellInput, 'input', onInput));
+        this.cleanups.push(on(cellInput, 'keydown', (e: KeyboardEvent) => {
             if (e.keyCode === 13) {
                 // ENTER, stop edit and move to next row
                 this.moveActive(0, 0);
@@ -397,19 +411,18 @@ export class Grid {
                 this.moveActive(0, 0);
                 e.preventDefault();
             }
-        });
+        }));
 
-        on(hiddenInput, 'keypress', (e: KeyboardEvent) => {
+        this.cleanups.push(on(hiddenInput, 'keypress', (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
             if (activeCell && !activeCell.readonly && !activeCell.input) {
-                activeCell.startEdit(this.cellInput, true);
+                activeCell.startEdit(cellInput, true);
                 this.emitFocus();
             }
             else {
                 e.preventDefault();
             }
-        });
-
+        }));
     }
 
     private initClipboard() {
@@ -605,7 +618,7 @@ class Cell {
         this.input = input;
         input.value = element.innerHTML;
         if (select) {
-            input.select();   
+            input.select();
         }
         input.style.width = element.offsetWidth - 2 + 'px';
         element.classList.add(CSS_EDITING);
@@ -657,10 +670,15 @@ function createElement<T extends HTMLElement>(html: string): T {
 
 function on(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
     element.addEventListener(event, listener);
+    return offFunc(element, event, listener);
 }
 
 function off(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
     element.removeEventListener(event, listener);
+}
+
+function offFunc(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
+    return () => element.removeEventListener(event, listener);
 }
 
 function getKey(e: KeyboardEvent) {

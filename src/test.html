@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="celled.js"></script>
+    <link rel="stylesheet" type="text/css" href="celled.css">
+</head>
+<body>
+
+    <div id="grid1"></div>
+    <button id="btn">Delete</button>
+    <script>
+        var gridContainer = document.getElementById('grid1');
+        var grid1 = new CellEd.Grid(gridContainer, {
+            cols: ['A', 'B'],
+            rows: [
+                [{ value: 1, readonly: true}, 2],
+                [{ value: 1, readonly: true}, 2],
+                [{ value: 1, readonly: true}, 2],
+            ],
+            canAddRows: true,
+        });
+        grid1.addRows([[{ value: 'added', readonly: true}, 'added']]);
+
+        document.getElementById('btn').addEventListener('click', () => {
+          grid1.destroy();
+          gridContainer.remove();
+          grid1 = null;
+          gridContainer = null;
+        });
+    </script>
+</body>
+</html>

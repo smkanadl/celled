@@ -34,7 +34,7 @@ export default {
         sourceMaps(),
         copy({
             targets: [
-              { src: 'src/index.html', dest: 'dist' },
+              { src: 'src/*.html', dest: 'dist' },
             ],
         })
     ]
