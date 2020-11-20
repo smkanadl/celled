@@ -627,6 +627,89 @@ describe('Grid', () => {
         expect(fired[0].value).toBe('');
     });
 
+    describe('pasteCSV', () => {
+
+        let grid: Grid;
+        describe('in 2x2 grid', () => {
+
+            beforeEach(() => {
+                grid = createGrid({
+                    cols: ['a', 'b'],
+                    rows: [ [1, 2], [3, 4] ],
+                    canAddRows: true,
+                });
+            });
+
+            it('should do nothing with empty string', () => {
+                grid.pasteCSV('', ';', 0, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['1', '2'], ['3', '4']]);
+            });
+
+            it('should paste single row with ; at 0;0', () => {
+                grid.pasteCSV('10;20', ';', 0, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['10', '20'], ['3', '4']]);
+            });
+
+            it('should paste single row with \\t at 0;0', () => {
+                grid.pasteCSV('10\t20', '\t', 0, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['10', '20'], ['3', '4']]);
+            });
+
+            it('should paste single row with ; at 1;0', () => {
+                grid.pasteCSV('10;20', ';', 1, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['1', '2'], ['10', '20']]);
+            });
+
+            it('should paste two rows with \\n at 0;0', () => {
+                grid.pasteCSV('10;20\n30;40', ';', 0, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['10', '20'], ['30', '40']]);
+            });
+
+            it('should paste two rows with \\r\\n at 0;0', () => {
+                grid.pasteCSV('10;20\r\n30;40', ';', 0, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['10', '20'], ['30', '40']]);
+            });
+
+            it('should paste two rows at 1;0 and add new row', () => {
+                grid.pasteCSV('10;20\n30;40', ';', 1, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['1', '2'], ['10', '20'], ['30', '40']]);
+            });
+
+            it('should paste two rows at 0;1 without adding cols', () => {
+                grid.pasteCSV('10;20\n30;40', ';', 0, 1);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['1', '10'], ['3', '30']]);
+            });
+
+            it('should paste two rows at 1;1 and add row', () => {
+                grid.pasteCSV('10;20\n30;40', ';', 1, 1);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['1', '2'], ['3', '10'], ['', '30']]);
+            });
+
+            it('should not add row for empty row', () => {
+                grid.pasteCSV('10;20\n', ';', 1, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['1', '2'], ['10', '20']]);
+            });
+
+            it('should not add row for empty row with \\r\\n', () => {
+                grid.pasteCSV('10;20\r\n', ';', 1, 0);
+                const g = getGrid();
+                expect(g.rows.map(r => r.values())).toEqual([['1', '2'], ['10', '20']]);
+            });
+        });
+
+    });
+
+
     function expectSelected(cells: Array<number[]>) {
         const grid = getGrid();
         let expected = '';

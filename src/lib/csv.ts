@@ -1,84 +1,60 @@
-// ref: http://stackoverflow.com/a/1293163/2343
+// ref: https://stackoverflow.com/a/14991797/498298
 // This will parse a delimited string into an array of
 // arrays. The default delimiter is the comma, but this
 // can be overriden in the second argument.
-export function parseCSV(strData: string, strDelimiter: string): Array<string[]> {
-    // Check to see if the delimiter is defined. If not,
-    // then default to comma.
-    strDelimiter = (strDelimiter || ',');
+export function parseCSV(str: string, delimiter: string) {
+    const arr: string[][] = [];
+    let quote = false;  // 'true' means we're inside a quoted field
 
-    // Create a regular expression to parse the CSV values.
-    const objPattern = new RegExp(
-        (
-            // Delimiters.
-            '(\\' + strDelimiter + '|\\r?\\n|\\r|^)' +
+    // Iterate over each character, keep track of current row and column (of the returned array)
+    for (let row = 0, col = 0, i = 0; i < str.length; i++) {
+        const currentChar = str[i];
+        const nextChar = str[i + 1];
+        arr[row] = arr[row] || [];             // Create a new row if necessary
+        arr[row][col] = arr[row][col] || '';   // Create a new column (start with empty string) if necessary
 
-            // Quoted fields.
-            '(?:"([^"]*(?:""[^"]*)*)"|' +
-
-            // Standard fields.
-            '([^"\\' + strDelimiter + '\\r\\n]*))'
-        ),
-        'gi'
-    );
-
-    // Create an array to hold our data. Give the array
-    // a default empty first row.
-    const arrData = [[]];
-
-    // Create an array to hold our individual pattern
-    // matching groups.
-    let arrMatches = null;
-
-    // Keep looping over the regular expression matches
-    // until we can no longer find a match.
-    while (arrMatches = objPattern.exec(strData)) {
-
-        // Get the delimiter that was found.
-        const strMatchedDelimiter = arrMatches[1];
-
-        // Check to see if the given delimiter has a length
-        // (is not the start of string) and if it matches
-        // field delimiter. If id does not, then we know
-        // that this delimiter is a row delimiter.
-        if (
-            strMatchedDelimiter.length &&
-            strMatchedDelimiter !== strDelimiter
-        ) {
-
-            // Since we have reached a new row of data,
-            // add an empty row to our data array.
-            arrData.push([]);
+        // If the current character is a quotation mark, and we're inside a
+        // quoted field, and the next character is also a quotation mark,
+        // add a quotation mark to the current column and skip the next character
+        if (currentChar === '"' && quote && nextChar === '"') {
+            arr[row][col] += currentChar;
+            ++i;
+            continue;
         }
 
-        let strMatchedValue;
-
-        // Now that we have our delimiter out of the way,
-        // let's check to see which kind of value we
-        // captured (quoted or unquoted).
-        if (arrMatches[2]) {
-
-            // We found a quoted value. When we capture
-            // this value, unescape any double quotes.
-            strMatchedValue = arrMatches[2].replace(
-                new RegExp('""', 'g'),
-                '"'
-            );
-
-        } else {
-
-            // We found a non-quoted value.
-            strMatchedValue = arrMatches[3];
-
+        // If it's just one quotation mark, begin/end quoted field
+        if (currentChar === '"') {
+            quote = !quote;
+            continue;
         }
 
-        // Now that we have our value string, let's add
-        // it to the data array.
-        arrData[arrData.length - 1].push(strMatchedValue);
+        // If it's a delimiter and we're not in a quoted field, move on to the next column
+        if (currentChar === delimiter && !quote) {
+            ++col;
+            continue;
+        }
+
+        // If it's a newline (CRLF) and we're not in a quoted field, skip the next character
+        // and move on to the next row and move to column 0 of that new row
+        if (currentChar === '\r' && nextChar === '\n' && !quote) {
+            ++row;
+            col = 0;
+            ++i;
+            continue;
+        }
+
+        // If it's a newline (LF or CR) and we're not in a quoted field,
+        // move on to the next row and move to column 0 of that new row
+        if ((currentChar === '\n' || currentChar === '\r') && !quote) {
+            ++row;
+            col = 0;
+            continue;
+        }
+
+        // Otherwise, append the current character to the current column
+        arr[row][col] += currentChar;
     }
-
-    // Return the parsed data.
-    return arrData;
+    return arr;
 }
 
 

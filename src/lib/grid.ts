@@ -425,35 +425,42 @@ export class Grid {
         }));
     }
 
+    pasteCSV(csvText: string, separator: string, startRow?: number, startCol?: number) {
+        const csv = parseCSV(csvText, separator);
+        const activeCell = this.activeCell;
+        if (isNaN(startRow) && !activeCell) {
+            return;
+        }
+        startRow = isNaN(startRow) ? activeCell.row : startRow;
+        startCol = isNaN(startCol) ? activeCell.col : startCol;
+
+        csv.forEach((csvRow, csvRowIndex) => {
+            let tableRow = this.rows[startRow + csvRowIndex];
+            if (!tableRow && this.options.canAddRows) {
+                const prevRow = this.rows[startRow];
+                this.addRows([prevRow.cells.map(c => '')]);
+                tableRow = this.rows[startRow + csvRowIndex];
+            }
+            const tableCol = startCol;
+            const isLastEmptyRow = csvRow.length === 1 && csvRow[0] === '';
+            if (tableRow && !isLastEmptyRow) {
+                csvRow.forEach((csvCell, csvColIndex) => {
+                    const cell = tableRow.cells[tableCol + csvColIndex];
+                    if (cell && !cell.readonly) {
+                        this.setCell(cell, csvCell);
+                        cell.select();
+                    }
+                });
+            }
+        });
+    }
+
     private initClipboard() {
         on(this.hiddenInput, 'paste', (e: ClipboardEvent) => {
             // Don't actually paste to hidden input
             e.preventDefault();
             const text = (e.clipboardData || (window as any).clipboardData).getData('text');
-            const csv = parseCSV(text, '\t');
-            const activeCell = this.activeCell;
-            if (!activeCell) {
-                return;
-            }
-            csv.forEach((csvRow, csvRowIndex) => {
-                let tableRow = this.rows[activeCell.row + csvRowIndex];
-                if (!tableRow && this.options.canAddRows) {
-                    const prevRow = this.rows[activeCell.row];
-                    this.addRows([prevRow.cells.map(c => c.value())]);
-                    tableRow = this.rows[activeCell.row + csvRowIndex];
-                }
-                const tableCol = activeCell.col;
-                const isLastEmptyRow = csvRow.length === 1 && csvRow[0] === '';
-                if (tableRow && !isLastEmptyRow) {
-                    csvRow.forEach((csvCell, csvColIndex) => {
-                        const cell = tableRow.cells[tableCol + csvColIndex];
-                        if (cell && !cell.readonly) {
-                            this.setCell(cell, csvCell);
-                            cell.select();
-                        }
-                    });
-                }
-            });
+            this.pasteCSV(text, '\t');
         });
 
         on(this.hiddenInput, 'copy', (e: ClipboardEvent) => {

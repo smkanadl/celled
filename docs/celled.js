@@ -131,6 +131,7 @@
             this.rows = [];
             this.cells = [];
             this.events = new EventEmitter();
+            this.cleanups = [];
             this.container = typeof container === 'string' ? query(container) : container;
             if (options) {
                 this.init(options);
@@ -163,6 +164,16 @@
             this.initKeys();
             this.initClipboard();
             queryAll(head, css(CSS_CELL)).forEach(function (c) { return c.style.width = c.offsetWidth + 'px'; });
+        };
+        Grid.prototype.destroy = function () {
+            this.cleanups.forEach(function (c) { return c(); });
+            this.cleanups.length = 0;
+            remove(this.grid);
+            this.grid = null;
+            this.hiddenInput = null;
+            this.cellInput = null;
+            this.rows = null;
+            this.cells = null;
         };
         Grid.prototype.on = function (event, handler) {
             this.events.addHandler(event, handler);
@@ -319,7 +330,7 @@
                 off(document, 'mouseup', mouseup);
             };
             var lastMouseDown = Date.now();
-            on(this.grid, 'mousedown', function (e) {
+            var cleanupMousedown = on(this.grid, 'mousedown', function (e) {
                 var cell = getTargetCell(e);
                 if (cell) {
                     var timeSinceLast = Date.now() - lastMouseDown;
@@ -344,7 +355,8 @@
                     e.preventDefault();
                 }
             });
-            on(document, 'mouseup', function (e) {
+            this.cleanups.push(cleanupMousedown);
+            var cleanupMouseup = on(document, 'mouseup', function (e) {
                 if (_this.activeCell) {
                     // Unselect all if was click outside of the grid.
                     for (var target = e.target; target; target = target.parentNode) {
@@ -358,6 +370,7 @@
                     }
                 }
             });
+            this.cleanups.push(cleanupMouseup);
         };
         Grid.prototype.activate = function (cell, doActivate) {
             if (doActivate === void 0) { doActivate = true; }
@@ -396,7 +409,8 @@
         Grid.prototype.initKeys = function () {
             var _this = this;
             var hiddenInput = this.hiddenInput;
-            on(hiddenInput, 'keydown', function (e) {
+            var cellInput = this.cellInput;
+            this.cleanups.push(on(hiddenInput, 'keydown', function (e) {
                 e = e || window.event;
                 var keyCode = e.keyCode;
                 if (keyCode === 46) { // del
@@ -419,7 +433,7 @@
                 if (keyCode === 40) {
                     _this.moveActive(1, 0);
                 }
-            });
+            }));
             var onInput = function (e) {
                 var activeCell = _this.activeCell;
                 if (activeCell && !activeCell.readonly && activeCell.input) {
@@ -431,8 +445,8 @@
                     });
                 }
             };
-            on(this.cellInput, 'input', onInput);
-            on(this.cellInput, 'keydown', function (e) {
+            this.cleanups.push(on(cellInput, 'input', onInput));
+            this.cleanups.push(on(cellInput, 'keydown', function (e) {
                 if (e.keyCode === 13) {
                     // ENTER, stop edit and move to next row
                     _this.moveActive(0, 0);
@@ -444,17 +458,17 @@
                     _this.moveActive(0, 0);
                     e.preventDefault();
                 }
-            });
-            on(hiddenInput, 'keypress', function (e) {
+            }));
+            this.cleanups.push(on(hiddenInput, 'keypress', function (e) {
                 var activeCell = _this.activeCell;
                 if (activeCell && !activeCell.readonly && !activeCell.input) {
-                    activeCell.startEdit(_this.cellInput, true);
+                    activeCell.startEdit(cellInput, true);
                     _this.emitFocus();
                 }
                 else {
                     e.preventDefault();
                 }
-            });
+            }));
         };
         Grid.prototype.initClipboard = function () {
             var _this = this;
@@ -686,9 +700,13 @@
     }
     function on(element, event, listener) {
         element.addEventListener(event, listener);
+        return offFunc(element, event, listener);
     }
     function off(element, event, listener) {
         element.removeEventListener(event, listener);
+    }
+    function offFunc(element, event, listener) {
+        return function () { return element.removeEventListener(event, listener); };
     }
     function remove(node) {
         if (node.parentNode) {
