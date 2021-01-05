@@ -198,7 +198,7 @@ export class Grid {
                 selection = true;
                 this.cells.forEach(c => c.activate(false).select(c.col === i));
                 selection = [i, i];
-                this.hiddenInput.focus();
+                this.focusHiddenInput();
                 this.activeCell = this.rows[0].cells[i];
                 this.emitSelect();
             }
@@ -208,6 +208,12 @@ export class Grid {
         });
 
         return column;
+    }
+
+    private focusHiddenInput() {
+        // Focus the hidden input element to receive paste events.
+        // Prevent scrolling up if input was blurred at the end of a long table.
+        this.hiddenInput.focus({ preventScroll: true });
     }
 
     private createRow(r: RowOptions): Row {
@@ -336,7 +342,7 @@ export class Grid {
         if (selectionChanged) {
             this.emitSelect();
         }
-        this.hiddenInput.focus();  // focus to receive paste events
+        this.focusHiddenInput();
     }
 
     private moveActive(rowDelta: number, colDelta: number, addRows = false) {

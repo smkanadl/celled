@@ -34,62 +34,56 @@
         return EventEmitter;
     }());
 
-    // ref: http://stackoverflow.com/a/1293163/2343
+    // ref: https://stackoverflow.com/a/14991797/498298
     // This will parse a delimited string into an array of
     // arrays. The default delimiter is the comma, but this
     // can be overriden in the second argument.
-    function parseCSV(strData, strDelimiter) {
-        // Check to see if the delimiter is defined. If not,
-        // then default to comma.
-        strDelimiter = (strDelimiter || ',');
-        // Create a regular expression to parse the CSV values.
-        var objPattern = new RegExp((
-        // Delimiters.
-        '(\\' + strDelimiter + '|\\r?\\n|\\r|^)' +
-            // Quoted fields.
-            '(?:"([^"]*(?:""[^"]*)*)"|' +
-            // Standard fields.
-            '([^"\\' + strDelimiter + '\\r\\n]*))'), 'gi');
-        // Create an array to hold our data. Give the array
-        // a default empty first row.
-        var arrData = [[]];
-        // Create an array to hold our individual pattern
-        // matching groups.
-        var arrMatches = null;
-        // Keep looping over the regular expression matches
-        // until we can no longer find a match.
-        while (arrMatches = objPattern.exec(strData)) {
-            // Get the delimiter that was found.
-            var strMatchedDelimiter = arrMatches[1];
-            // Check to see if the given delimiter has a length
-            // (is not the start of string) and if it matches
-            // field delimiter. If id does not, then we know
-            // that this delimiter is a row delimiter.
-            if (strMatchedDelimiter.length &&
-                strMatchedDelimiter !== strDelimiter) {
-                // Since we have reached a new row of data,
-                // add an empty row to our data array.
-                arrData.push([]);
+    function parseCSV(str, delimiter) {
+        var arr = [];
+        var quote = false; // 'true' means we're inside a quoted field
+        // Iterate over each character, keep track of current row and column (of the returned array)
+        for (var row = 0, col = 0, i = 0; i < str.length; i++) {
+            var currentChar = str[i];
+            var nextChar = str[i + 1];
+            arr[row] = arr[row] || []; // Create a new row if necessary
+            arr[row][col] = arr[row][col] || ''; // Create a new column (start with empty string) if necessary
+            // If the current character is a quotation mark, and we're inside a
+            // quoted field, and the next character is also a quotation mark,
+            // add a quotation mark to the current column and skip the next character
+            if (currentChar === '"' && quote && nextChar === '"') {
+                arr[row][col] += currentChar;
+                ++i;
+                continue;
             }
-            var strMatchedValue = void 0;
-            // Now that we have our delimiter out of the way,
-            // let's check to see which kind of value we
-            // captured (quoted or unquoted).
-            if (arrMatches[2]) {
-                // We found a quoted value. When we capture
-                // this value, unescape any double quotes.
-                strMatchedValue = arrMatches[2].replace(new RegExp('""', 'g'), '"');
+            // If it's just one quotation mark, begin/end quoted field
+            if (currentChar === '"') {
+                quote = !quote;
+                continue;
             }
-            else {
-                // We found a non-quoted value.
-                strMatchedValue = arrMatches[3];
+            // If it's a delimiter and we're not in a quoted field, move on to the next column
+            if (currentChar === delimiter && !quote) {
+                ++col;
+                continue;
             }
-            // Now that we have our value string, let's add
-            // it to the data array.
-            arrData[arrData.length - 1].push(strMatchedValue);
+            // If it's a newline (CRLF) and we're not in a quoted field, skip the next character
+            // and move on to the next row and move to column 0 of that new row
+            if (currentChar === '\r' && nextChar === '\n' && !quote) {
+                ++row;
+                col = 0;
+                ++i;
+                continue;
+            }
+            // If it's a newline (LF or CR) and we're not in a quoted field,
+            // move on to the next row and move to column 0 of that new row
+            if ((currentChar === '\n' || currentChar === '\r') && !quote) {
+                ++row;
+                col = 0;
+                continue;
+            }
+            // Otherwise, append the current character to the current column
+            arr[row][col] += currentChar;
         }
-        // Return the parsed data.
-        return arrData;
+        return arr;
     }
     function writeCSV(values, separator, linebreak) {
         if (linebreak === void 0) { linebreak = '\n'; }
@@ -257,7 +251,7 @@
                     selection = true;
                     _this.cells.forEach(function (c) { return c.activate(false).select(c.col === i_1); });
                     selection = [i_1, i_1];
-                    _this.hiddenInput.focus();
+                    _this.focusHiddenInput();
                     _this.activeCell = _this.rows[0].cells[i_1];
                     _this.emitSelect();
                 }
@@ -266,6 +260,11 @@
                 e.preventDefault();
             });
             return column;
+        };
+        Grid.prototype.focusHiddenInput = function () {
+            // Focus the hidden input element to receive paste events.
+            // Prevent scrolling up if input was blurred at the end of a long table.
+            this.hiddenInput.focus({ preventScroll: true });
         };
         Grid.prototype.createRow = function (r) {
             var row = new Row(this.rows.length);
@@ -386,7 +385,7 @@
             if (selectionChanged) {
                 this.emitSelect();
             }
-            this.hiddenInput.focus(); // focus to receive paste events
+            this.focusHiddenInput();
         };
         Grid.prototype.moveActive = function (rowDelta, colDelta, addRows) {
             if (addRows === void 0) { addRows = false; }
@@ -470,36 +469,42 @@
                 }
             }));
         };
+        Grid.prototype.pasteCSV = function (csvText, separator, startRow, startCol) {
+            var _this = this;
+            var csv = parseCSV(csvText, separator);
+            var activeCell = this.activeCell;
+            if (isNaN(startRow) && !activeCell) {
+                return;
+            }
+            startRow = isNaN(startRow) ? activeCell.row : startRow;
+            startCol = isNaN(startCol) ? activeCell.col : startCol;
+            csv.forEach(function (csvRow, csvRowIndex) {
+                var tableRow = _this.rows[startRow + csvRowIndex];
+                if (!tableRow && _this.options.canAddRows) {
+                    var prevRow = _this.rows[startRow];
+                    _this.addRows([prevRow.cells.map(function (c) { return ''; })]);
+                    tableRow = _this.rows[startRow + csvRowIndex];
+                }
+                var tableCol = startCol;
+                var isLastEmptyRow = csvRow.length === 1 && csvRow[0] === '';
+                if (tableRow && !isLastEmptyRow) {
+                    csvRow.forEach(function (csvCell, csvColIndex) {
+                        var cell = tableRow.cells[tableCol + csvColIndex];
+                        if (cell && !cell.readonly) {
+                            _this.setCell(cell, csvCell);
+                            cell.select();
+                        }
+                    });
+                }
+            });
+        };
         Grid.prototype.initClipboard = function () {
             var _this = this;
             on(this.hiddenInput, 'paste', function (e) {
                 // Don't actually paste to hidden input
                 e.preventDefault();
                 var text = (e.clipboardData || window.clipboardData).getData('text');
-                var csv = parseCSV(text, '\t');
-                var activeCell = _this.activeCell;
-                if (!activeCell) {
-                    return;
-                }
-                csv.forEach(function (csvRow, csvRowIndex) {
-                    var tableRow = _this.rows[activeCell.row + csvRowIndex];
-                    if (!tableRow && _this.options.canAddRows) {
-                        var prevRow = _this.rows[activeCell.row];
-                        _this.addRows([prevRow.cells.map(function (c) { return c.value(); })]);
-                        tableRow = _this.rows[activeCell.row + csvRowIndex];
-                    }
-                    var tableCol = activeCell.col;
-                    var isLastEmptyRow = csvRow.length === 1 && csvRow[0] === '';
-                    if (tableRow && !isLastEmptyRow) {
-                        csvRow.forEach(function (csvCell, csvColIndex) {
-                            var cell = tableRow.cells[tableCol + csvColIndex];
-                            if (cell && !cell.readonly) {
-                                _this.setCell(cell, csvCell);
-                                cell.select();
-                            }
-                        });
-                    }
-                });
+                _this.pasteCSV(text, '\t');
             });
             on(this.hiddenInput, 'copy', function (e) {
                 e.preventDefault();
