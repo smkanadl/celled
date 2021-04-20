@@ -1,21 +1,10 @@
 import { EventEmitter, EventHandler, EventHandlerBase } from './events';
 import { parseCSV, writeCSV } from './csv';
+import { query, remove, createElement, queryAll, off, on } from './dom';
+import { GridOptions, RowOptions, CellValue, CellValueOptions } from './options';
+import { Cell, createCell } from './cell';
+import { CSS_CELL, CSS_CONTAINER, CSS_GRID, CSS_HEAD, CSS_RESIZER, CSS_ROW } from './css';
 
-export type CellValue = string | number;
-
-export interface CellValueOptions {
-    readonly?: boolean;
-    value: CellValue;
-}
-
-export type RowOptions = Array<CellValue | CellValueOptions>;
-
-export interface GridOptions {
-    cols: Array<string | number>;
-    rows: Array<RowOptions>;
-    input?: HTMLInputElement | (() => HTMLInputElement);
-    canAddRows?: boolean;
-}
 
 export interface InputArgs {
     grid: Grid;
@@ -29,24 +18,13 @@ export interface SelectArgs {
     selection: Array<{ row: number, col: number }>;
 }
 
-const CSS_PREFIX = 'ced';
-const CSS_CONTAINER = `${CSS_PREFIX}-grid-container`;
-const CSS_GRID = `${CSS_PREFIX}-grid`;
-const CSS_ROW = `${CSS_PREFIX}-row`;
-const CSS_CELL = `${CSS_PREFIX}-cell`;
-const CSS_HEAD = `${CSS_PREFIX}-head`;
-const CSS_RESIZER = `${CSS_PREFIX}-resizer`;
-const CSS_EDITING = `${CSS_PREFIX}-editing`;
-const CSS_ACTIVE = `${CSS_PREFIX}-active`;
-const CSS_SELECTED = `${CSS_PREFIX}-selected`;
-const CSS_READONLY = `${CSS_PREFIX}-readonly`;
+
 
 function css(className) {
     return '.' + className;
 }
 
 export class Grid {
-
     private container: Element;
     private grid: HTMLElement;
     private rows: Row[] = [];
@@ -101,6 +79,7 @@ export class Grid {
         this.cleanups.forEach(c => c());
         this.cleanups.length = 0;
         remove(this.grid);
+        this.cells.forEach(c => c.destroy());
         this.grid = null;
         this.hiddenInput = null;
         this.cellInput = null;
@@ -218,7 +197,7 @@ export class Grid {
 
     private createRow(r: RowOptions): Row {
         const row = new Row(this.rows.length);
-        row.addCells(r);
+        row.addCells(r, cell => this.emitInput(cell));
         this.rows.push(row);
         this.grid.appendChild(row.element);
         return row;
@@ -290,10 +269,15 @@ export class Grid {
             if (cell) {
                 const timeSinceLast = Date.now() - lastMouseDown;
                 lastMouseDown = Date.now();
-                if (cell.input) {
+                if (cell.hasInput()) {
+                    // The cell is already in edit mode. Do nothing and continue with default event handling
                     return;
                 }
                 else if (cell === this.activeCell && !cell.readonly && timeSinceLast < 300) {
+                    // Double click on cell to start edit mode
+                    // if (Array.isArray(cell.options)) {
+                    //     cell.startSelect(this.cellSelect);
+                    // }
                     cell.startEdit(this.cellInput);
                     this.emitFocus();
                 }
@@ -394,7 +378,7 @@ export class Grid {
 
         const onInput = (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
-            if (activeCell && !activeCell.readonly && activeCell.input) {
+            if (activeCell && !activeCell.readonly && activeCell.hasInput()) {
                 this.updatValue(activeCell);
                 this.cells.forEach(cell => {
                     if (cell.selected() && cell !== activeCell) {
@@ -421,7 +405,7 @@ export class Grid {
 
         this.cleanups.push(on(hiddenInput, 'keypress', (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
-            if (activeCell && !activeCell.readonly && !activeCell.input) {
+            if (activeCell && !activeCell.readonly && !activeCell.hasInput()) {
                 activeCell.startEdit(cellInput, true);
                 this.emitFocus();
             }
@@ -556,90 +540,8 @@ export class Grid {
     }
 }
 
-class Cell {
-    element: HTMLElement;
-    input: HTMLInputElement;
-    readonly = false;
 
-    constructor(public row: number, public col: number, value: CellValue | CellValueOptions) {
-        let text: string;
-        if (typeof value === 'string' || typeof value === 'number') {
-            text = value.toString();
-        }
-        else {
-            this.readonly = value.readonly;
-            text = value.value.toString();
-        }
-        const className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
-        this.element = createElement(`<div data-ci="${col}" class="${className}">${text}</div>`);
-    }
 
-    selected() {
-        return this.element.className.indexOf(CSS_SELECTED) >= 0;
-    }
-
-    select(doSelect = true) {
-        const classList = this.element.classList;
-        if (doSelect) {
-            classList.add(CSS_SELECTED);
-        }
-        else {
-            classList.remove(CSS_SELECTED);
-        }
-        return this;
-    }
-
-    activate(doActivate = true) {
-        const classList = this.element.classList;
-        if (doActivate) {
-            classList.add(CSS_ACTIVE);
-            classList.add(CSS_SELECTED);
-        }
-        else {
-            classList.remove(CSS_ACTIVE);
-            classList.remove(CSS_EDITING);
-            if (this.input) {
-                this.input.blur();
-                remove(this.input);
-                this.element.innerHTML = this.input.value;
-                this.input = null;
-            }
-        }
-        return this;
-    }
-
-    value() {
-        return this.input ? this.input.value : this.element.innerHTML;
-    }
-
-    set(value: string) {
-        if (!this.readonly) {
-            if (this.input) {
-                this.input.value = value;
-            }
-            else {
-                this.element.innerHTML = value;
-            }
-        }
-    }
-
-    startEdit(input: HTMLInputElement, select = false) {
-        if (this.readonly) {
-            return;
-        }
-        const element = this.element;
-        this.input = input;
-        input.value = element.innerHTML;
-        if (select) {
-            input.select();
-        }
-        input.style.width = element.offsetWidth - 2 + 'px';
-        element.classList.add(CSS_EDITING);
-        element.innerHTML = '';
-        element.appendChild(input);
-        input.focus();
-    }
-}
 
 class Row {
     element: Element;
@@ -649,9 +551,9 @@ class Row {
         this.element = createElement(`<div data-ri="${index}" class="${CSS_ROW}"></div>`) as Element;
     }
 
-    addCells(cells: Array<CellValue | CellValueOptions>) {
+    addCells(cells: Array<CellValue | CellValueOptions>, updateValueCallback: (cell: Cell) => unknown) {
         cells.forEach((c, columnIndex) => {
-            const cell = new Cell(this.index, columnIndex, c);
+            const cell = createCell(this.index, columnIndex, c, updateValueCallback);
             this.cells.push(cell);
             this.element.appendChild(cell.element);
         });
@@ -659,48 +561,3 @@ class Row {
 }
 
 // ----
-function query(elOrCss, cssSelector?): Element {
-    if (!cssSelector) {
-        cssSelector = elOrCss;
-        elOrCss = document;
-    }
-    return elOrCss.querySelector(cssSelector);
-}
-
-function queryAll(elOrCss, cssSelector?): Element[] {
-    if (!cssSelector) {
-        cssSelector = elOrCss;
-        elOrCss = document;
-    }
-    return [].slice.call(elOrCss.querySelectorAll(cssSelector));
-}
-
-function createElement<T extends HTMLElement>(html: string): T {
-    const div = document.createElement('div');
-    div.innerHTML = html.trim();
-    return div.firstChild as T;
-}
-
-function on(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
-    element.addEventListener(event, listener);
-    return offFunc(element, event, listener);
-}
-
-function off(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
-    element.removeEventListener(event, listener);
-}
-
-function offFunc(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
-    return () => element.removeEventListener(event, listener);
-}
-
-function getKey(e: KeyboardEvent) {
-    e = e || window.event as KeyboardEvent;
-    return String.fromCharCode(e.keyCode || e.which);
-}
-
-function remove(node: Node) {
-    if (node.parentNode) {
-        node.parentElement.removeChild(node);
-    }
-}

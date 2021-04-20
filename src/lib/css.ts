@@ -1,0 +1,12 @@
+export const CSS_PREFIX = 'ced';
+export const CSS_CONTAINER = `${CSS_PREFIX}-grid-container`;
+export const CSS_GRID = `${CSS_PREFIX}-grid`;
+export const CSS_ROW = `${CSS_PREFIX}-row`;
+export const CSS_CELL = `${CSS_PREFIX}-cell`;
+export const CSS_SELECT_CELL = `${CSS_PREFIX}-select-cell`;
+export const CSS_HEAD = `${CSS_PREFIX}-head`;
+export const CSS_RESIZER = `${CSS_PREFIX}-resizer`;
+export const CSS_EDITING = `${CSS_PREFIX}-editing`;
+export const CSS_ACTIVE = `${CSS_PREFIX}-active`;
+export const CSS_SELECTED = `${CSS_PREFIX}-selected`;
+export const CSS_READONLY = `${CSS_PREFIX}-readonly`;

@@ -6,6 +6,7 @@ $class-head: #{$class-prefix}-head;
 $class-resizer: #{$class-prefix}-resizer;
 $class-row: #{$class-prefix}-row;
 $class-cell: #{$class-prefix}-cell;
+$class-select-cell: #{$class-prefix}-select-cell;
 $class-resizer: #{$class-prefix}-resizer;
 $class-editing: #{$class-prefix}-editing;
 
@@ -57,7 +58,7 @@ $cell-padding: 0.25em 0.5em;
         display: table-row;
     }
 
-    input, input[type=number], input[type=text] {
+    input, input[type=number], input[type=text], select {
         border: 0;
         margin: 0;
         padding: $cell-padding;
@@ -69,6 +70,12 @@ $cell-padding: 0.25em 0.5em;
         font-family: inherit;
         text-align: left;
     }
+
+    select {
+        width: 100%;
+        background: transparent;
+    }
+
 
     .#{$class-row}:nth-child(odd) {
         .#{$class-cell}:not(.#{$class-selected}):not(.#{$class-highlight}) {
@@ -94,6 +101,10 @@ $cell-padding: 0.25em 0.5em;
             background: #fff;
             color: #333;
             padding: 0;
+        }
+
+        &.#{$class-select-cell} {
+            padding: 0 .5em 0 0;
         }
     }
 

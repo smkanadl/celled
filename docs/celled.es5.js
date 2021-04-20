@@ -100,17 +100,206 @@ function writeCSV(values, separator, linebreak) {
     return content;
 }
 
+function query(elOrCss, cssSelector) {
+    if (!cssSelector) {
+        cssSelector = elOrCss;
+        elOrCss = document;
+    }
+    return elOrCss.querySelector(cssSelector);
+}
+function queryAll(elOrCss, cssSelector) {
+    if (!cssSelector) {
+        cssSelector = elOrCss;
+        elOrCss = document;
+    }
+    return [].slice.call(elOrCss.querySelectorAll(cssSelector));
+}
+function createElement(html) {
+    var div = document.createElement('div');
+    div.innerHTML = html.trim();
+    return div.firstChild;
+}
+function on(element, event, listener) {
+    element.addEventListener(event, listener);
+    return offFunc(element, event, listener);
+}
+function off(element, event, listener) {
+    element.removeEventListener(event, listener);
+}
+function offFunc(element, event, listener) {
+    return function () { return element.removeEventListener(event, listener); };
+}
+function remove(node) {
+    if (node.parentNode) {
+        node.parentElement.removeChild(node);
+    }
+}
+function setOptions(selectElement, options) {
+    for (var i = selectElement.options.length; i > 0; i--) {
+        selectElement.remove(i);
+    }
+    for (var _i = 0, options_1 = options; _i < options_1.length; _i++) {
+        var option = options_1[_i];
+        var optionElement = document.createElement('option');
+        optionElement.value = '' + option;
+        optionElement.innerHTML = '' + option;
+        selectElement.appendChild(optionElement);
+    }
+}
+
 var CSS_PREFIX = 'ced';
 var CSS_CONTAINER = CSS_PREFIX + "-grid-container";
 var CSS_GRID = CSS_PREFIX + "-grid";
 var CSS_ROW = CSS_PREFIX + "-row";
 var CSS_CELL = CSS_PREFIX + "-cell";
+var CSS_SELECT_CELL = CSS_PREFIX + "-select-cell";
 var CSS_HEAD = CSS_PREFIX + "-head";
 var CSS_RESIZER = CSS_PREFIX + "-resizer";
 var CSS_EDITING = CSS_PREFIX + "-editing";
 var CSS_ACTIVE = CSS_PREFIX + "-active";
 var CSS_SELECTED = CSS_PREFIX + "-selected";
 var CSS_READONLY = CSS_PREFIX + "-readonly";
+
+/**
+ * Create a new Cell instance matching the definitions in the value parameter.
+ * @param callback  Can be used by the cell to notify value changes that are not
+ *                  triggered from outside.
+ */
+function createCell(row, col, value, callback) {
+    if (typeof value !== 'string' && typeof value !== 'number' && Array.isArray(value.options)) {
+        return new SelectCell(row, col, value, callback);
+    }
+    return new InputCell(row, col, value);
+}
+var InputCell = /** @class */ (function () {
+    function InputCell(row, col, value) {
+        this.row = row;
+        this.col = col;
+        this.readonly = false;
+        var text;
+        if (typeof value === 'string' || typeof value === 'number') {
+            text = value.toString();
+        }
+        else {
+            this.readonly = value.readonly;
+            text = value.value.toString();
+        }
+        var className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
+        this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\">" + text + "</div>");
+    }
+    InputCell.prototype.destroy = function () {
+    };
+    InputCell.prototype.selected = function () {
+        return this.element.className.indexOf(CSS_SELECTED) >= 0;
+    };
+    InputCell.prototype.select = function (doSelect) {
+        if (doSelect === void 0) { doSelect = true; }
+        var classList = this.element.classList;
+        if (doSelect) {
+            classList.add(CSS_SELECTED);
+        }
+        else {
+            classList.remove(CSS_SELECTED);
+        }
+        return this;
+    };
+    InputCell.prototype.activate = function (doActivate) {
+        if (doActivate === void 0) { doActivate = true; }
+        var classList = this.element.classList;
+        if (doActivate) {
+            classList.add(CSS_ACTIVE);
+            classList.add(CSS_SELECTED);
+        }
+        else {
+            classList.remove(CSS_ACTIVE);
+            classList.remove(CSS_EDITING);
+            if (this.input) {
+                this.input.blur();
+                remove(this.input);
+                this.element.innerHTML = this.input.value;
+                this.input = null;
+            }
+        }
+        return this;
+    };
+    InputCell.prototype.value = function () {
+        return this.input ? this.input.value : this.element.innerHTML;
+    };
+    InputCell.prototype.set = function (value) {
+        if (!this.readonly) {
+            if (this.input) {
+                this.input.value = value;
+            }
+            else {
+                this.element.innerHTML = value;
+            }
+        }
+    };
+    InputCell.prototype.startEdit = function (input, select) {
+        if (select === void 0) { select = false; }
+        if (this.readonly) {
+            return;
+        }
+        var element = this.element;
+        this.input = input;
+        input.value = element.innerHTML;
+        if (select) {
+            input.select();
+        }
+        input.style.width = element.offsetWidth - 2 + 'px';
+        element.classList.add(CSS_EDITING);
+        element.innerHTML = '';
+        element.appendChild(input);
+        input.focus();
+    };
+    InputCell.prototype.hasInput = function () {
+        return !!this.input;
+    };
+    return InputCell;
+}());
+var SelectCell = /** @class */ (function () {
+    function SelectCell(row, col, value, callback) {
+        var _this = this;
+        this.row = row;
+        this.col = col;
+        this.readonly = false;
+        this.options = null;
+        this.readonly = value.readonly;
+        this.options = value.options;
+        var className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
+        this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\"></div>");
+        this.selectElement = createElement("<select><select>");
+        setOptions(this.selectElement, this.options);
+        this.element.appendChild(this.selectElement);
+        this.listener = function () { return callback(_this); };
+        this.selectElement.addEventListener('change', this.listener);
+    }
+    SelectCell.prototype.destroy = function () {
+        this.selectElement.removeEventListener('change', this.listener);
+    };
+    SelectCell.prototype.value = function () {
+        return this.selectElement.value;
+    };
+    SelectCell.prototype.set = function (value) {
+        this.selectElement.value = value;
+    };
+    SelectCell.prototype.select = function (doSelect) {
+        return this;
+    };
+    SelectCell.prototype.selected = function () {
+        return false;
+    };
+    SelectCell.prototype.activate = function (doActivate) {
+        return this;
+    };
+    SelectCell.prototype.startEdit = function (input, selectContent) {
+    };
+    SelectCell.prototype.hasInput = function () {
+        return false;
+    };
+    return SelectCell;
+}());
+
 function css(className) {
     return '.' + className;
 }
@@ -139,6 +328,7 @@ var Grid = /** @class */ (function () {
         else {
             this.cellInput = createElement("<input id=\"celled-cell-input\" type=\"text\" >");
         }
+        // this.cellSelect = createElement<HTMLSelectElement>(`<select id="celled-cell-select"><select>`);
         this.hiddenInput = createElement('<div id="celled-hidden-input" style="position:absolute; z-index:-1; left:2px; top: 2px;" contenteditable tabindex="0"></div>');
         var gridContainer = createElement("<div class=\"" + CSS_CONTAINER + "\"></div>");
         var grid = this.grid = createElement("<div class=\"" + CSS_GRID + "\"><div class=\"" + CSS_ROW + " " + CSS_HEAD + "\"></div></div>");
@@ -157,6 +347,7 @@ var Grid = /** @class */ (function () {
         this.cleanups.forEach(function (c) { return c(); });
         this.cleanups.length = 0;
         remove(this.grid);
+        this.cells.forEach(function (c) { return c.destroy(); });
         this.grid = null;
         this.hiddenInput = null;
         this.cellInput = null;
@@ -261,8 +452,9 @@ var Grid = /** @class */ (function () {
         this.hiddenInput.focus({ preventScroll: true });
     };
     Grid.prototype.createRow = function (r) {
+        var _this = this;
         var row = new Row(this.rows.length);
-        row.addCells(r);
+        row.addCells(r, function (cell) { return _this.emitInput(cell); });
         this.rows.push(row);
         this.grid.appendChild(row.element);
         return row;
@@ -328,10 +520,15 @@ var Grid = /** @class */ (function () {
             if (cell) {
                 var timeSinceLast = Date.now() - lastMouseDown;
                 lastMouseDown = Date.now();
-                if (cell.input) {
+                if (cell.hasInput()) {
+                    // The cell is already in edit mode. Do nothing and continue with default event handling
                     return;
                 }
                 else if (cell === _this.activeCell && !cell.readonly && timeSinceLast < 300) {
+                    // Double click on cell to start edit mode
+                    // if (Array.isArray(cell.options)) {
+                    //     cell.startSelect(this.cellSelect);
+                    // }
                     cell.startEdit(_this.cellInput);
                     _this.emitFocus();
                 }
@@ -429,7 +626,7 @@ var Grid = /** @class */ (function () {
         }));
         var onInput = function (e) {
             var activeCell = _this.activeCell;
-            if (activeCell && !activeCell.readonly && activeCell.input) {
+            if (activeCell && !activeCell.readonly && activeCell.hasInput()) {
                 _this.updatValue(activeCell);
                 _this.cells.forEach(function (cell) {
                     if (cell.selected() && cell !== activeCell) {
@@ -454,7 +651,7 @@ var Grid = /** @class */ (function () {
         }));
         this.cleanups.push(on(hiddenInput, 'keypress', function (e) {
             var activeCell = _this.activeCell;
-            if (activeCell && !activeCell.readonly && !activeCell.input) {
+            if (activeCell && !activeCell.readonly && !activeCell.hasInput()) {
                 activeCell.startEdit(cellInput, true);
                 _this.emitFocus();
             }
@@ -580,97 +777,16 @@ var Grid = /** @class */ (function () {
     };
     return Grid;
 }());
-var Cell = /** @class */ (function () {
-    function Cell(row, col, value) {
-        this.row = row;
-        this.col = col;
-        this.readonly = false;
-        var text;
-        if (typeof value === 'string' || typeof value === 'number') {
-            text = value.toString();
-        }
-        else {
-            this.readonly = value.readonly;
-            text = value.value.toString();
-        }
-        var className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
-        this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\">" + text + "</div>");
-    }
-    Cell.prototype.selected = function () {
-        return this.element.className.indexOf(CSS_SELECTED) >= 0;
-    };
-    Cell.prototype.select = function (doSelect) {
-        if (doSelect === void 0) { doSelect = true; }
-        var classList = this.element.classList;
-        if (doSelect) {
-            classList.add(CSS_SELECTED);
-        }
-        else {
-            classList.remove(CSS_SELECTED);
-        }
-        return this;
-    };
-    Cell.prototype.activate = function (doActivate) {
-        if (doActivate === void 0) { doActivate = true; }
-        var classList = this.element.classList;
-        if (doActivate) {
-            classList.add(CSS_ACTIVE);
-            classList.add(CSS_SELECTED);
-        }
-        else {
-            classList.remove(CSS_ACTIVE);
-            classList.remove(CSS_EDITING);
-            if (this.input) {
-                this.input.blur();
-                remove(this.input);
-                this.element.innerHTML = this.input.value;
-                this.input = null;
-            }
-        }
-        return this;
-    };
-    Cell.prototype.value = function () {
-        return this.input ? this.input.value : this.element.innerHTML;
-    };
-    Cell.prototype.set = function (value) {
-        if (!this.readonly) {
-            if (this.input) {
-                this.input.value = value;
-            }
-            else {
-                this.element.innerHTML = value;
-            }
-        }
-    };
-    Cell.prototype.startEdit = function (input, select) {
-        if (select === void 0) { select = false; }
-        if (this.readonly) {
-            return;
-        }
-        var element = this.element;
-        this.input = input;
-        input.value = element.innerHTML;
-        if (select) {
-            input.select();
-        }
-        input.style.width = element.offsetWidth - 2 + 'px';
-        element.classList.add(CSS_EDITING);
-        element.innerHTML = '';
-        element.appendChild(input);
-        input.focus();
-    };
-    return Cell;
-}());
 var Row = /** @class */ (function () {
     function Row(index) {
         this.index = index;
         this.cells = [];
         this.element = createElement("<div data-ri=\"" + index + "\" class=\"" + CSS_ROW + "\"></div>");
     }
-    Row.prototype.addCells = function (cells) {
+    Row.prototype.addCells = function (cells, updateValueCallback) {
         var _this = this;
         cells.forEach(function (c, columnIndex) {
-            var cell = new Cell(_this.index, columnIndex, c);
+            var cell = createCell(_this.index, columnIndex, c, updateValueCallback);
             _this.cells.push(cell);
             _this.element.appendChild(cell.element);
         });
@@ -678,40 +794,6 @@ var Row = /** @class */ (function () {
     return Row;
 }());
 // ----
-function query(elOrCss, cssSelector) {
-    if (!cssSelector) {
-        cssSelector = elOrCss;
-        elOrCss = document;
-    }
-    return elOrCss.querySelector(cssSelector);
-}
-function queryAll(elOrCss, cssSelector) {
-    if (!cssSelector) {
-        cssSelector = elOrCss;
-        elOrCss = document;
-    }
-    return [].slice.call(elOrCss.querySelectorAll(cssSelector));
-}
-function createElement(html) {
-    var div = document.createElement('div');
-    div.innerHTML = html.trim();
-    return div.firstChild;
-}
-function on(element, event, listener) {
-    element.addEventListener(event, listener);
-    return offFunc(element, event, listener);
-}
-function off(element, event, listener) {
-    element.removeEventListener(event, listener);
-}
-function offFunc(element, event, listener) {
-    return function () { return element.removeEventListener(event, listener); };
-}
-function remove(node) {
-    if (node.parentNode) {
-        node.parentElement.removeChild(node);
-    }
-}
 
 export { Grid };
 //# sourceMappingURL=celled.es5.js.map

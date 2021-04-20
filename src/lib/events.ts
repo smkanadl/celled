@@ -1,5 +1,6 @@
 
-export interface EventArgs {}
+export interface EventArgs { }
+
 export type EventHandlerBase = (arg: EventArgs) => any;
 
 export interface EventHandler<T> extends EventHandlerBase {
