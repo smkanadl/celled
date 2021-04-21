@@ -3,7 +3,7 @@ import { parseCSV, writeCSV } from './csv';
 import { query, remove, createElement, queryAll, off, on } from './dom';
 import { GridOptions, RowOptions, CellValue, CellValueOptions } from './options';
 import { Cell, createCell } from './cell';
-import { CSS_CELL, CSS_CONTAINER, CSS_GRID, CSS_HEAD, CSS_RESIZER, CSS_ROW } from './css';
+import { CSS_CELL, CSS_CONTAINER, CSS_CONTAINER_SCROLL, CSS_GRID, CSS_HEAD, CSS_HEAD_STICKY, CSS_RESIZER, CSS_ROW } from './css';
 
 
 export interface InputArgs {
@@ -18,11 +18,6 @@ export interface SelectArgs {
     selection: Array<{ row: number, col: number }>;
 }
 
-
-
-function css(className) {
-    return '.' + className;
-}
 
 export class Grid {
     private container: Element;
@@ -59,15 +54,22 @@ export class Grid {
         }
         this.hiddenInput = createElement(
             '<div id="celled-hidden-input" style="position:absolute; z-index:-1; left:2px; top: 2px;" contenteditable tabindex="0"></div>');
+
+        if (options.scroll) {
+            container.classList.add(CSS_CONTAINER_SCROLL);
+        }
         const gridContainer = createElement(`<div class="${CSS_CONTAINER}"></div>`);
-        const grid = this.grid = createElement(
-            `<div class="${CSS_GRID}"><div class="${CSS_ROW} ${CSS_HEAD}"></div></div>`);
+
+        const stickyHeader = options.scroll && options.scroll.stickyHeader;
+        const headCss = `${CSS_ROW} ${CSS_HEAD} ${stickyHeader ? CSS_HEAD_STICKY : ''}`;
+        const grid = this.grid = createElement(`<div class="${CSS_GRID}"><div class="${headCss}"></div></div>`);
 
         container.appendChild(gridContainer);
         gridContainer.appendChild(this.hiddenInput);
         gridContainer.appendChild(grid);
         const head = query(container, css(CSS_HEAD));
         options.cols.forEach((c, index) => head.appendChild(this.createHeadCell(c, index)));
+
         this.createRows();
         this.initMouse();
         this.initKeys();
@@ -541,7 +543,9 @@ export class Grid {
 }
 
 
-
+function css(className) {
+    return '.' + className;
+}
 
 class Row {
     element: Element;

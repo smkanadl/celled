@@ -14,13 +14,18 @@
     <button id="btn">Delete</button>
     <script>
         var gridContainer = document.getElementById('grid1');
+        // var grid1 = new CellEd.Grid(gridContainer, {
+        //     cols: ['A', 'B'],
+        //     rows: [
+        //         [{ value: 1, options: [1, 2, 3] }, 2],
+        //         [{ value: 1, options: [1, 2, 3] }, 2],
+        //         [{ value: 1, options: [1, 2, 3] }, 2],
+        //     ],
+        //     canAddRows: true,
+        // });
         var grid1 = new CellEd.Grid(gridContainer, {
             cols: ['A', 'B'],
-            rows: [
-                [{ value: 1, options: [1, 2, 3] }, 2],
-                [{ value: 1, options: [1, 2, 3] }, 2],
-                [{ value: 1, options: [1, 2, 3] }, 2],
-            ],
+            rows: Array(100).map(x => [Math.random().toString(), Math.random().toString()]),
             canAddRows: true,
         });
         grid1.addRows([[{ value: 'added', readonly: true}, 'added']]);

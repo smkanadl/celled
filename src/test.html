@@ -7,21 +7,39 @@
     <title>Document</title>
     <script src="celled.js"></script>
     <link rel="stylesheet" type="text/css" href="celled.css">
+    <style>
+        body, html {
+            padding: 0;
+            margin: 0;
+        }
+        .container {
+            padding: 0 1em;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #grid1 {
+            flex-grow: 1;
+        }
+    </style>
 </head>
 <body>
 
-    <div id="grid1"></div>
-    <button id="btn">Delete</button>
+    <div class="container">
+        <h1>Test</h1>
+        <div id="grid1"></div>
+        <button id="btn">Delete</button>
+    </div>
+
     <script>
         var gridContainer = document.getElementById('grid1');
         var grid1 = new CellEd.Grid(gridContainer, {
-            cols: ['A', 'B'],
-            rows: [
-                [{ value: 1, options: [1, 2, 3] }, 2],
-                [{ value: 1, options: [1, 2, 3] }, 2],
-                [{ value: 1, options: [1, 2, 3] }, 2],
-            ],
+            cols: ['P', 'A', 'B'],
+            rows: Array(100).fill(0).map((x, i) => [i, Math.round((Math.random() * 1e6)).toString(), Math.random().toString()]),
             canAddRows: true,
+            scroll: {
+                stickyHeader: true,
+            }
         });
         grid1.addRows([[{ value: 'added', readonly: true}, 'added']]);
 

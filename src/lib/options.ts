@@ -8,9 +8,14 @@ export interface CellValueOptions {
 
 export type RowOptions = Array<CellValue | CellValueOptions>;
 
+export interface ScrollOptions {
+    stickyHeader?: boolean;
+}
+
 export interface GridOptions {
     cols: Array<string | number>;
     rows: Array<RowOptions>;
     input?: HTMLInputElement | (() => HTMLInputElement);
     canAddRows?: boolean;
+    scroll?: ScrollOptions;
 }

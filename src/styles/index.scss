@@ -1,8 +1,10 @@
 $class-prefix: ced;
 
 $class-container: #{$class-prefix}-grid-container;
+$class-container-scroll: #{$class-prefix}-grid-container-scroll;
 $class-grid: #{$class-prefix}-grid;
 $class-head: #{$class-prefix}-head;
+$class-head-sticky: #{$class-prefix}-head-sticky;
 $class-resizer: #{$class-prefix}-resizer;
 $class-row: #{$class-prefix}-row;
 $class-cell: #{$class-prefix}-cell;
@@ -25,13 +27,20 @@ $cell-padding: 0.25em 0.5em;
     position: relative;
 }
 
+.#{$class-container-scroll} {
+    overflow: auto;
+}
+
 .#{$class-grid} {
     display: table;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
+
     width: 100%;
     outline: none;
     color: #333;
     background: #fff;
+    position: relative;
 
     &, *, *::before, *::after {
         box-sizing: border-box;
@@ -41,7 +50,14 @@ $cell-padding: 0.25em 0.5em;
         font-weight: 700;
         &.#{$class-row} .#{$class-cell} {
             background: $color-head-bg;
+            border-top: $border;
         }
+    }
+
+    .#{$class-head}.#{$class-head-sticky} .#{$class-cell} {
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
 
     .#{$class-resizer} {
@@ -84,10 +100,18 @@ $cell-padding: 0.25em 0.5em;
     }
 
     .#{$class-row} .#{$class-cell} {
+        border-bottom: $border;
+        border-right: $border;
+        &:first-child {
+            border-left: $border;
+        }
+    }
+
+    .#{$class-row} .#{$class-cell} {
         cursor: default;
         position: relative;
         display: table-cell;
-        border: $border;
+        // border: $border;
         padding: $cell-padding;
         height: 2.1em;
         line-height: 1.5em;

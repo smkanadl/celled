@@ -6,7 +6,7 @@ export function query(elOrCss, cssSelector?): Element {
     return elOrCss.querySelector(cssSelector);
 }
 
-export function queryAll(elOrCss, cssSelector?): Element[] {
+export function queryAll<T = Element>(elOrCss, cssSelector?): T[] {
     if (!cssSelector) {
         cssSelector = elOrCss;
         elOrCss = document;
