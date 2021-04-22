@@ -9,7 +9,12 @@ export interface CellValueOptions {
 export type RowOptions = Array<CellValue | CellValueOptions>;
 
 export interface ScrollOptions {
+    /** Default: true */
+    enabled?: boolean;
+    /** Default: true */
     stickyHeader?: boolean;
+    /** Default: true */
+    virtualScroll?: boolean;
 }
 
 export interface GridOptions {

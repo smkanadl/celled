@@ -1,9 +1,11 @@
 import { EventEmitter, EventHandler, EventHandlerBase } from './events';
 import { parseCSV, writeCSV } from './csv';
 import { query, remove, createElement, queryAll, off, on } from './dom';
-import { GridOptions, RowOptions, CellValue, CellValueOptions } from './options';
-import { Cell, createCell } from './cell';
+import { GridOptions, RowOptions, ScrollOptions } from './options';
+import { Cell } from './cell';
 import { CSS_CELL, CSS_CONTAINER, CSS_CONTAINER_SCROLL, CSS_GRID, CSS_HEAD, CSS_HEAD_STICKY, CSS_RESIZER, CSS_ROW } from './css';
+import { Row } from './row';
+import { DefaultRenderer, Renderer, VirtualRenderer } from './render';
 
 
 export interface InputArgs {
@@ -20,7 +22,7 @@ export interface SelectArgs {
 
 
 export class Grid {
-    private container: Element;
+    private container: HTMLElement;
     private grid: HTMLElement;
     private rows: Row[] = [];
     private cells: Cell[] = [];
@@ -30,15 +32,17 @@ export class Grid {
     private cellInput: HTMLInputElement;
     private hiddenInput: HTMLElement;
     private cleanups: Array<() => any> = [];
+    private render: Renderer;
 
-    constructor(container: string | Element, options?: GridOptions) {
-        this.container = typeof container === 'string' ? query(container) : container;
+    constructor(container: string | HTMLElement, options?: GridOptions) {
+        this.container = typeof container === 'string' ? query<HTMLElement>(container) : container;
         if (options) {
             this.init(options);
         }
     }
 
     init(options: GridOptions) {
+        options.scroll = getScrollOptions(options);
         this.options = options;
         const container = this.container;
         const rows = this.rows;
@@ -60,24 +64,30 @@ export class Grid {
         }
         const gridContainer = createElement(`<div class="${CSS_CONTAINER}"></div>`);
 
-        const stickyHeader = options.scroll && options.scroll.stickyHeader;
+        const stickyHeader = options.scroll.stickyHeader;
         const headCss = `${CSS_ROW} ${CSS_HEAD} ${stickyHeader ? CSS_HEAD_STICKY : ''}`;
-        const grid = this.grid = createElement(`<div class="${CSS_GRID}"><div class="${headCss}"></div></div>`);
+        const head = createElement(`<div class="${headCss}"></div>`);
+        const grid = this.grid = createElement(`<div class="${CSS_GRID}"></div>`);
 
         container.appendChild(gridContainer);
         gridContainer.appendChild(this.hiddenInput);
         gridContainer.appendChild(grid);
-        const head = query(container, css(CSS_HEAD));
         options.cols.forEach((c, index) => head.appendChild(this.createHeadCell(c, index)));
+
+        const renderOptions = { container, gridContainer, grid, head };
+        this.render = options.scroll.virtualScroll ? new VirtualRenderer(renderOptions) : new DefaultRenderer(renderOptions);
 
         this.createRows();
         this.initMouse();
         this.initKeys();
         this.initClipboard();
-        queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => c.style.width = c.offsetWidth + 'px');
+        queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => {
+            c.style.width = c.offsetWidth + 'px';
+        });
     }
 
     destroy() {
+        this.render.destroy();
         this.cleanups.forEach(c => c());
         this.cleanups.length = 0;
         remove(this.grid);
@@ -108,10 +118,11 @@ export class Grid {
         if (this.options.canAddRows) {
             [].push.apply(this.options.rows, rows);
             rows.forEach(r => {
-                const newRow = this.createRow(r);
+                const newRow = this.createAndAddRow(r);
                 newRow.cells.forEach(c => this.emitInput(c));
             });
             this.flattenCells();
+            this.renderRows();
         }
     }
 
@@ -197,18 +208,22 @@ export class Grid {
         this.hiddenInput.focus({ preventScroll: true });
     }
 
-    private createRow(r: RowOptions): Row {
+    private createAndAddRow(r: RowOptions): Row {
         const row = new Row(this.rows.length);
         row.addCells(r, cell => this.emitInput(cell));
         this.rows.push(row);
-        this.grid.appendChild(row.element);
         return row;
     }
 
     private createRows() {
         this.rows = [];
-        this.options.rows.forEach(r => this.createRow(r));
+        this.options.rows.forEach(r => this.createAndAddRow(r));
         this.flattenCells();
+        this.renderRows();
+    }
+
+    private renderRows() {
+        this.render.rerender(this.rows);
     }
 
     private flattenCells() {
@@ -216,25 +231,31 @@ export class Grid {
     }
 
     private initMouse() {
-        const rows = this.rows;
         let downCellIndex: number;
         let downRowIndex: number;
 
         let selectionIdentifier: string = null;
         const rememberSelection = (r1, c1, r2, c2) => '' + r1 + c1 + r2 + c2;
 
-        const getTargetCell = (e: MouseEvent) => {
-            const cell = e.target as Element;
+        const findTargetCell = (cell: Element, level = 0): Cell => {
             if (!cell || !cell.parentElement) {
                 return;
             }
             const cellIndexAttr = cell.getAttribute('data-ci');
+            if (cellIndexAttr === null && level < 2) {
+                return findTargetCell(cell.parentElement, level + 1);
+            }
             const rowIndexAttr = cell.parentElement.getAttribute('data-ri');
             const cellIndex = +cellIndexAttr;
             const rowIndex = +rowIndexAttr;
             if (cellIndexAttr && rowIndexAttr && !isNaN(cellIndex) && !isNaN(rowIndex)) {
                 return this.rows[rowIndex].cells[cellIndex];
             }
+        };
+
+        const getTargetCell = (e: MouseEvent) => {
+            const cell = e.target as Element;
+            return findTargetCell(cell);
         };
 
         const mousemove = (moveEvent: MouseEvent) => {
@@ -547,21 +568,20 @@ function css(className) {
     return '.' + className;
 }
 
-class Row {
-    element: Element;
-    cells: Cell[] = [];
+function trueOr(value: boolean): boolean {
+    return value === false ? false : true;
+}
 
-    constructor(public index: number) {
-        this.element = createElement(`<div data-ri="${index}" class="${CSS_ROW}"></div>`) as Element;
+function getScrollOptions(options: GridOptions): ScrollOptions {
+    const scroll = options.scroll;
+    if (!scroll) {
+        return {};
     }
-
-    addCells(cells: Array<CellValue | CellValueOptions>, updateValueCallback: (cell: Cell) => unknown) {
-        cells.forEach((c, columnIndex) => {
-            const cell = createCell(this.index, columnIndex, c, updateValueCallback);
-            this.cells.push(cell);
-            this.element.appendChild(cell.element);
-        });
-    }
+    return {
+        enabled: trueOr(scroll.enabled),
+        virtualScroll: trueOr(scroll.virtualScroll),
+        stickyHeader: trueOr(scroll.stickyHeader),
+    };
 }
 
 // ----

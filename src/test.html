@@ -28,31 +28,53 @@
     <div class="container">
         <h1>Test</h1>
         <div id="grid1"></div>
-        <button id="btn">Delete</button>
+        <div>
+            <button id="delete-btn">Delete</button>
+            <button id="refresh-btn">Refresh</button>
+        </div>
+        
     </div>
 
     <script>
-        var gridContainer = document.getElementById('grid1');
-        var grid1 = new CellEd.Grid(gridContainer, {
-            cols: ['P', 'A', 'B'],
-            rows: Array(100).fill(0).map((x, i) => [i, Math.round((Math.random() * 1e6)).toString(), Math.random().toString()]),
-            canAddRows: true,
-            scroll: {
-                stickyHeader: true,
-            }
-        });
-        grid1.addRows([[{ value: 'added', readonly: true}, 'added']]);
+        function create() {
+            const options = {
+                cols: ['P', 'A', 'B'],
+                rows: Array(10000).fill(0).map((x, i) => [
+                    i,
+                    Math.round((Math.random() * 1e6)).toString(),
+                    Math.random().toString()]),
+                canAddRows: true,
+                scroll: {
+                    stickyHeader: true,
+                }
+            };
 
-        document.getElementById('btn').addEventListener('click', () => {
+            options.rows[1][1] = {
+                value: 1, options: [1, 2, 3, 4, 5]
+            };
+            [30, 31, 32].forEach(i => {
+                options.rows[i][2] = options.rows[i][1] = Array(15).fill(options.rows[i][1]).join(' ')
+            });
+            return options;
+        }
+
+        var gridContainer = document.getElementById('grid1');
+        var grid1 = new CellEd.Grid(gridContainer, create());
+
+        document.getElementById('delete-btn').addEventListener('click', () => {
           grid1.destroy();
           gridContainer.remove();
           grid1 = null;
           gridContainer = null;
         });
+
+        document.getElementById('refresh-btn').addEventListener('click', () => {
+          grid1.init(create());
+        });
         
-        grid1.on('input', (e) => console.log('input', e));
-        grid1.on('focus', (e) => console.log('focus', e));
-        grid1.on('select', (e) => console.log('select', e));
+        // grid1.on('input', (e) => console.log('input', e));
+        // grid1.on('focus', (e) => console.log('focus', e));
+        // grid1.on('select', (e) => console.log('select', e));
 
     </script>
 </body>

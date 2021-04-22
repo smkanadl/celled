@@ -149,11 +149,13 @@ function setOptions(selectElement, options) {
 
 var CSS_PREFIX = 'ced';
 var CSS_CONTAINER = CSS_PREFIX + "-grid-container";
+var CSS_CONTAINER_SCROLL = CSS_PREFIX + "-grid-container-scroll";
 var CSS_GRID = CSS_PREFIX + "-grid";
 var CSS_ROW = CSS_PREFIX + "-row";
 var CSS_CELL = CSS_PREFIX + "-cell";
 var CSS_SELECT_CELL = CSS_PREFIX + "-select-cell";
 var CSS_HEAD = CSS_PREFIX + "-head";
+var CSS_HEAD_STICKY = CSS_PREFIX + "-head-sticky";
 var CSS_RESIZER = CSS_PREFIX + "-resizer";
 var CSS_EDITING = CSS_PREFIX + "-editing";
 var CSS_ACTIVE = CSS_PREFIX + "-active";
@@ -190,17 +192,11 @@ var InputCell = /** @class */ (function () {
     InputCell.prototype.destroy = function () {
     };
     InputCell.prototype.selected = function () {
-        return this.element.className.indexOf(CSS_SELECTED) >= 0;
+        return isSelectCss(this.element);
     };
     InputCell.prototype.select = function (doSelect) {
         if (doSelect === void 0) { doSelect = true; }
-        var classList = this.element.classList;
-        if (doSelect) {
-            classList.add(CSS_SELECTED);
-        }
-        else {
-            classList.remove(CSS_SELECTED);
-        }
+        setSelectCSS(this.element, doSelect);
         return this;
     };
     InputCell.prototype.activate = function (doActivate) {
@@ -284,10 +280,12 @@ var SelectCell = /** @class */ (function () {
         this.selectElement.value = value;
     };
     SelectCell.prototype.select = function (doSelect) {
+        if (doSelect === void 0) { doSelect = true; }
+        setSelectCSS(this.element, doSelect);
         return this;
     };
     SelectCell.prototype.selected = function () {
-        return false;
+        return isSelectCss(this.element);
     };
     SelectCell.prototype.activate = function (doActivate) {
         return this;
@@ -299,10 +297,118 @@ var SelectCell = /** @class */ (function () {
     };
     return SelectCell;
 }());
-
-function css(className) {
-    return '.' + className;
+function setSelectCSS(element, doSelect) {
+    var classList = element.classList;
+    if (doSelect) {
+        classList.add(CSS_SELECTED);
+    }
+    else {
+        classList.remove(CSS_SELECTED);
+    }
 }
+function isSelectCss(element) {
+    return element.className.indexOf(CSS_SELECTED) >= 0;
+}
+
+var Row = /** @class */ (function () {
+    function Row(index) {
+        this.index = index;
+        this.cells = [];
+        this.element = createElement("<div data-ri=\"" + index + "\" class=\"" + CSS_ROW + "\"></div>");
+    }
+    Row.prototype.addCells = function (cells, updateValueCallback) {
+        var _this = this;
+        cells.forEach(function (c, columnIndex) {
+            var cell = createCell(_this.index, columnIndex, c, updateValueCallback);
+            _this.cells.push(cell);
+            _this.element.appendChild(cell.element);
+        });
+    };
+    return Row;
+}());
+
+var DefaultRenderer = /** @class */ (function () {
+    function DefaultRenderer(options) {
+        this.options = options;
+    }
+    DefaultRenderer.prototype.rerender = function (rows) {
+        var _a = this.options, grid = _a.grid, head = _a.head;
+        grid.innerHTML = '';
+        grid.appendChild(head);
+        rows.forEach(function (r) {
+            grid.appendChild(r.element);
+        });
+    };
+    DefaultRenderer.prototype.destroy = function () {
+        this.options = null;
+    };
+    return DefaultRenderer;
+}());
+var VirtualRenderer = /** @class */ (function () {
+    function VirtualRenderer(options) {
+        this.options = options;
+    }
+    VirtualRenderer.prototype.rerender = function (rows) {
+        var _a = this.options, grid = _a.grid, head = _a.head, container = _a.container, gridContainer = _a.gridContainer;
+        if (this.onScroll) {
+            container.removeEventListener('scroll', this.onScroll);
+        }
+        var nodePadding = 4;
+        var currentRange = {
+            start: 0,
+            end: 0,
+        };
+        var rowHeight = 34; // just a guess
+        grid.style.position = 'absolute';
+        var update = function (scrollTop) {
+            var itemCount = rows.length;
+            var viewportHeight = container.offsetHeight;
+            var totalContentHeight = itemCount * rowHeight;
+            var startIndex = Math.floor(scrollTop / rowHeight) - nodePadding;
+            if (startIndex % 2 > 0) {
+                // always start with an odd index to keep alternating styles consistent
+                startIndex -= 1;
+            }
+            startIndex = Math.max(0, startIndex);
+            var visibleNodesCount = Math.ceil(viewportHeight / rowHeight) + 2 * nodePadding;
+            visibleNodesCount = Math.min(itemCount - startIndex, visibleNodesCount);
+            var endIndex = startIndex + visibleNodesCount;
+            var offsetY = startIndex * rowHeight;
+            gridContainer.style.height = totalContentHeight + "px";
+            grid.style['top'] = offsetY + "px";
+            // Render
+            if (currentRange.start !== startIndex || currentRange.end !== endIndex) {
+                currentRange.start = startIndex;
+                currentRange.end = endIndex;
+                grid.innerHTML = '';
+                grid.appendChild(head);
+                var renderedHeight = 0;
+                var count = 0;
+                for (var i = startIndex; (i <= endIndex || renderedHeight < viewportHeight) && i < rows.length; ++i) {
+                    var row = rows[i];
+                    grid.appendChild(row.element);
+                    renderedHeight += row.element.offsetHeight;
+                    ++count;
+                }
+                if (count) {
+                    rowHeight = renderedHeight / count;
+                }
+            }
+        };
+        this.onScroll = function (e) {
+            update(e.target.scrollTop);
+        };
+        container.addEventListener('scroll', this.onScroll);
+        update(container.scrollTop);
+    };
+    VirtualRenderer.prototype.destroy = function () {
+        this.options.container.removeEventListener('scroll', this.onScroll);
+        this.options = null;
+        this.onScroll = null;
+    };
+    return VirtualRenderer;
+}());
+
 var Grid = /** @class */ (function () {
     function Grid(container, options) {
         this.rows = [];
@@ -328,22 +434,31 @@ var Grid = /** @class */ (function () {
         else {
             this.cellInput = createElement("<input id=\"celled-cell-input\" type=\"text\" >");
         }
-        // this.cellSelect = createElement<HTMLSelectElement>(`<select id="celled-cell-select"><select>`);
         this.hiddenInput = createElement('<div id="celled-hidden-input" style="position:absolute; z-index:-1; left:2px; top: 2px;" contenteditable tabindex="0"></div>');
+        if (options.scroll) {
+            container.classList.add(CSS_CONTAINER_SCROLL);
+        }
         var gridContainer = createElement("<div class=\"" + CSS_CONTAINER + "\"></div>");
-        var grid = this.grid = createElement("<div class=\"" + CSS_GRID + "\"><div class=\"" + CSS_ROW + " " + CSS_HEAD + "\"></div></div>");
+        var stickyHeader = options.scroll && options.scroll.stickyHeader;
+        var headCss = CSS_ROW + " " + CSS_HEAD + " " + (stickyHeader ? CSS_HEAD_STICKY : '');
+        var head = createElement("<div class=\"" + headCss + "\"></div>");
+        var grid = this.grid = createElement("<div class=\"" + CSS_GRID + "\"></div>");
         container.appendChild(gridContainer);
         gridContainer.appendChild(this.hiddenInput);
         gridContainer.appendChild(grid);
-        var head = query(container, css(CSS_HEAD));
         options.cols.forEach(function (c, index) { return head.appendChild(_this.createHeadCell(c, index)); });
+        var renderOptions = { container: container, gridContainer: gridContainer, grid: grid, head: head };
+        this.render = options.scroll ? new VirtualRenderer(renderOptions) : new DefaultRenderer(renderOptions);
         this.createRows();
         this.initMouse();
         this.initKeys();
         this.initClipboard();
-        queryAll(head, css(CSS_CELL)).forEach(function (c) { return c.style.width = c.offsetWidth + 'px'; });
+        queryAll(head, css(CSS_CELL)).forEach(function (c) {
+            c.style.width = c.offsetWidth + 'px';
+        });
     };
     Grid.prototype.destroy = function () {
+        this.render.destroy();
         this.cleanups.forEach(function (c) { return c(); });
         this.cleanups.length = 0;
         remove(this.grid);
@@ -365,10 +480,11 @@ var Grid = /** @class */ (function () {
         if (this.options.canAddRows) {
             [].push.apply(this.options.rows, rows);
             rows.forEach(function (r) {
-                var newRow = _this.createRow(r);
+                var newRow = _this.createAndAddRow(r);
                 newRow.cells.forEach(function (c) { return _this.emitInput(c); });
             });
             this.flattenCells();
+            this.renderRows();
         }
     };
     Grid.prototype.addRow = function () {
@@ -451,26 +567,28 @@ var Grid = /** @class */ (function () {
         // Prevent scrolling up if input was blurred at the end of a long table.
         this.hiddenInput.focus({ preventScroll: true });
     };
-    Grid.prototype.createRow = function (r) {
+    Grid.prototype.createAndAddRow = function (r) {
         var _this = this;
         var row = new Row(this.rows.length);
         row.addCells(r, function (cell) { return _this.emitInput(cell); });
         this.rows.push(row);
-        this.grid.appendChild(row.element);
         return row;
     };
     Grid.prototype.createRows = function () {
         var _this = this;
         this.rows = [];
-        this.options.rows.forEach(function (r) { return _this.createRow(r); });
+        this.options.rows.forEach(function (r) { return _this.createAndAddRow(r); });
         this.flattenCells();
+        this.renderRows();
+    };
+    Grid.prototype.renderRows = function () {
+        this.render.rerender(this.rows);
     };
     Grid.prototype.flattenCells = function () {
         this.cells = this.rows.reduce(function (a, b) { return a.concat(b.cells); }, []);
     };
     Grid.prototype.initMouse = function () {
         var _this = this;
-        var rows = this.rows;
         var downCellIndex;
         var downRowIndex;
         var selectionIdentifier = null;
@@ -777,22 +895,9 @@ var Grid = /** @class */ (function () {
     };
     return Grid;
 }());
-var Row = /** @class */ (function () {
-    function Row(index) {
-        this.index = index;
-        this.cells = [];
-        this.element = createElement("<div data-ri=\"" + index + "\" class=\"" + CSS_ROW + "\"></div>");
-    }
-    Row.prototype.addCells = function (cells, updateValueCallback) {
-        var _this = this;
-        cells.forEach(function (c, columnIndex) {
-            var cell = createCell(_this.index, columnIndex, c, updateValueCallback);
-            _this.cells.push(cell);
-            _this.element.appendChild(cell.element);
-        });
-    };
-    return Row;
-}());
+function css(className) {
+    return '.' + className;
+}
 // ----
 
 export { Grid };

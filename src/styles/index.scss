@@ -21,7 +21,9 @@ $color-light-bg: #fff;
 $color-head-bg: $color-dark-bg;
 
 $border: 1px solid $color-cell-border;
-$cell-padding: 0.25em 0.5em;
+
+$cell-padding-x: 0.5em;
+$cell-padding: 0.25em $cell-padding-x;
 
 .#{$class-container} {
     position: relative;
@@ -29,6 +31,24 @@ $cell-padding: 0.25em 0.5em;
 
 .#{$class-container-scroll} {
     overflow: auto;
+    .#{$class-grid} {
+        will-change: transform;
+        .#{$class-cell}:not(.#{$class-editing}):not(.#{$class-select-cell}) {
+            &::before {
+                content: '&nbsp;';
+                visibility: hidden;
+            }
+            span {
+                position: absolute;
+                left: $cell-padding-x;
+                right: $cell-padding-x;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+        }
+    }
+
 }
 
 .#{$class-grid} {

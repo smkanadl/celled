@@ -1,4 +1,4 @@
-export function query(elOrCss, cssSelector?): Element {
+export function query<T = Element>(elOrCss, cssSelector?): T {
     if (!cssSelector) {
         cssSelector = elOrCss;
         elOrCss = document;

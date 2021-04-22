@@ -83,7 +83,7 @@ class InputCell implements Cell {
             text = value.value.toString();
         }
         const className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
-        this.element = createElement(`<div data-ci="${col}" class="${className}">${text}</div>`);
+        this.element = createElement(`<div data-ci="${col}" class="${className}">${valueHTML(text)}</div>`);
     }
 
     destroy() {
@@ -111,7 +111,7 @@ class InputCell implements Cell {
             if (this.input) {
                 this.input.blur();
                 remove(this.input);
-                this.element.innerHTML = this.input.value;
+                this.element.innerHTML = valueHTML(this.input.value);
                 this.input = null;
             }
         }
@@ -119,7 +119,7 @@ class InputCell implements Cell {
     }
 
     value() {
-        return this.input ? this.input.value : this.element.innerHTML;
+        return this.input ? this.input.value : this.element.textContent;
     }
 
     set(value: string) {
@@ -128,11 +128,10 @@ class InputCell implements Cell {
                 this.input.value = value;
             }
             else {
-                this.element.innerHTML = value;
+                this.element.innerHTML = valueHTML(value);
             }
         }
     }
-
 
     startEdit(input: HTMLInputElement, select = false) {
         if (this.readonly) {
@@ -140,7 +139,7 @@ class InputCell implements Cell {
         }
         const element = this.element;
         this.input = input;
-        input.value = element.innerHTML;
+        input.value = element.textContent;
         if (select) {
             input.select();
         }
@@ -156,6 +155,9 @@ class InputCell implements Cell {
     }
 }
 
+function valueHTML(value) {
+    return `<span>${value}</span>`;
+}
 
 class SelectCell implements Cell {
     element: HTMLElement;

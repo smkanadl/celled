@@ -7,39 +7,63 @@
     <title>Document</title>
     <script src="celled.js"></script>
     <link rel="stylesheet" type="text/css" href="celled.css">
+    <style>
+        body, html {
+            padding: 0;
+            margin: 0;
+        }
+        .container {
+            padding: 0 1em;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #grid1 {
+            flex-grow: 1;
+        }
+    </style>
 </head>
 <body>
 
-    <div id="grid1"></div>
-    <button id="btn">Delete</button>
-    <script>
-        var gridContainer = document.getElementById('grid1');
-        // var grid1 = new CellEd.Grid(gridContainer, {
-        //     cols: ['A', 'B'],
-        //     rows: [
-        //         [{ value: 1, options: [1, 2, 3] }, 2],
-        //         [{ value: 1, options: [1, 2, 3] }, 2],
-        //         [{ value: 1, options: [1, 2, 3] }, 2],
-        //     ],
-        //     canAddRows: true,
-        // });
-        var grid1 = new CellEd.Grid(gridContainer, {
-            cols: ['A', 'B'],
-            rows: Array(100).map(x => [Math.random().toString(), Math.random().toString()]),
-            canAddRows: true,
-        });
-        grid1.addRows([[{ value: 'added', readonly: true}, 'added']]);
+    <div class="container">
+        <h1>Test</h1>
+        <div id="grid1"></div>
+        <div>
+            <button id="delete-btn">Delete</button>
+            <button id="refresh-btn">Refresh</button>
+        </div>
+        
+    </div>
 
-        document.getElementById('btn').addEventListener('click', () => {
+    <script>
+        function create() {
+            return {
+                cols: ['P', 'A', 'B'],
+                rows: Array(10000).fill(0).map((x, i) => [i, Math.round((Math.random() * 1e6)).toString(), Math.random().toString()]),
+                canAddRows: true,
+                scroll: {
+                    stickyHeader: true,
+                }
+            }
+        }
+
+        var gridContainer = document.getElementById('grid1');
+        var grid1 = new CellEd.Grid(gridContainer, create());
+
+        document.getElementById('delete-btn').addEventListener('click', () => {
           grid1.destroy();
           gridContainer.remove();
           grid1 = null;
           gridContainer = null;
         });
+
+        document.getElementById('refresh-btn').addEventListener('click', () => {
+          grid1.init(create());
+        });
         
-        grid1.on('input', (e) => console.log('input', e));
-        grid1.on('focus', (e) => console.log('focus', e));
-        grid1.on('select', (e) => console.log('select', e));
+        // grid1.on('input', (e) => console.log('input', e));
+        // grid1.on('focus', (e) => console.log('focus', e));
+        // grid1.on('select', (e) => console.log('select', e));
 
     </script>
 </body>
