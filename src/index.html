@@ -20,13 +20,15 @@
             font-family: "Roboto", sans-serif;
             color: #fff;
             background: #134E5E;
-            background: -webkit-linear-gradient(to top, #71B280, #134E5E);
-            background: linear-gradient(to top, #71B280, #134E5E);
+            background: -webkit-linear-gradient(to top, #0c303a, #134E5E);
+            background: linear-gradient(to top, #0c303a, #134E5E);
+            padding-bottom: 5em;
         }
         h1 { font-size: 2rem; }
         h2 { font-size: 1.2rem; }
         h3 { font-size: 1.1rem; }
-        h1, h2, h3 { margin: 1em 0 0 0 }
+        h1, h2, h3 { margin: 0 0 0.5em 0 }
+        .mt-5 { margin-top: 2em; }
         .container {
             width: 100%;
             max-width: 900px;
@@ -54,7 +56,7 @@
         <h1>CellEd</h1>
         <em><strong>Simple cell editor</strong></em>
         
-        <h2>Dynamic size grid with readonly column</h2>
+        <h2 class="mt-5">Dynamic size grid with readonly column</h2>
         <pre>
 var grid1 = new CellEd.Grid('#grid1', {
     cols: ['A', 'B'],
@@ -67,7 +69,7 @@ var grid1 = new CellEd.Grid('#grid1', {
 });
 grid1.addRows([[{ value: 'added', readonly: true}, 'added']]);</pre>
         <div id="grid1"></div>
-        <h2>Fixed size grid</h2>
+        <h2 class="mt-5">Fixed size grid</h2>
         <pre>
 var grid2 = new CellEd.Grid('#grid2');
 grid2.init({
@@ -79,9 +81,14 @@ grid2.init({
     ],
 });</pre>
         <div id="grid2"></div>
-        <h3>Events fired by #grid2</h3>
+        <h3 class="mt-5">Events fired by #grid2</h3>
         <pre id="log"></pre>
+
+        <h2 class="mt-5">Select cells</h2>
+        <div id="grid3"></div>
     </div>
+
+
     <script>
         function log(msg) {
             var l =document.getElementById('log'); 
@@ -111,6 +118,17 @@ grid2.init({
         grid2.on('select', a => log('select ' + JSON.stringify(a) + '\n'));
         grid2.on('input', a => log('input ' + JSON.stringify(a) + '\n'));
         grid2.on('focus', a => log('focus ' + JSON.stringify(a) + '\n'));
+
+
+        var grid3 = new CellEd.Grid('#grid3', {
+            cols: ['A', 'B', 'C'],
+            rows: [
+                ['A', { value: 1, options: [1, 2, 3] }, { value: 'A', options: ['A', 'B', 'C'] },],
+                ['B', { value: 1, options: [1, 2, 3] }, { value: 'A', options: ['A', 'B', 'C'] },],
+                ['C', { value: 1, options: [1, 2, 3] }, { value: 'A', options: ['A', 'B', 'C'] },],
+            ],
+            canAddRows: true,
+        });
     </script>
 </body>
 </html>

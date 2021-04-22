@@ -106,20 +106,326 @@
         return content;
     }
 
+    function query(elOrCss, cssSelector) {
+        if (!cssSelector) {
+            cssSelector = elOrCss;
+            elOrCss = document;
+        }
+        return elOrCss.querySelector(cssSelector);
+    }
+    function queryAll(elOrCss, cssSelector) {
+        if (!cssSelector) {
+            cssSelector = elOrCss;
+            elOrCss = document;
+        }
+        return [].slice.call(elOrCss.querySelectorAll(cssSelector));
+    }
+    function createElement(html) {
+        var div = document.createElement('div');
+        div.innerHTML = html.trim();
+        return div.firstChild;
+    }
+    function on(element, event, listener) {
+        element.addEventListener(event, listener);
+        return offFunc(element, event, listener);
+    }
+    function off(element, event, listener) {
+        element.removeEventListener(event, listener);
+    }
+    function offFunc(element, event, listener) {
+        return function () { return element.removeEventListener(event, listener); };
+    }
+    function remove(node) {
+        if (node.parentNode) {
+            node.parentElement.removeChild(node);
+        }
+    }
+    function setOptions(selectElement, options) {
+        for (var i = selectElement.options.length; i > 0; i--) {
+            selectElement.remove(i);
+        }
+        for (var _i = 0, options_1 = options; _i < options_1.length; _i++) {
+            var option = options_1[_i];
+            var optionElement = document.createElement('option');
+            optionElement.value = '' + option;
+            optionElement.innerHTML = '' + option;
+            selectElement.appendChild(optionElement);
+        }
+    }
+
     var CSS_PREFIX = 'ced';
     var CSS_CONTAINER = CSS_PREFIX + "-grid-container";
+    var CSS_CONTAINER_SCROLL = CSS_PREFIX + "-grid-container-scroll";
     var CSS_GRID = CSS_PREFIX + "-grid";
     var CSS_ROW = CSS_PREFIX + "-row";
     var CSS_CELL = CSS_PREFIX + "-cell";
+    var CSS_SELECT_CELL = CSS_PREFIX + "-select-cell";
     var CSS_HEAD = CSS_PREFIX + "-head";
+    var CSS_HEAD_STICKY = CSS_PREFIX + "-head-sticky";
     var CSS_RESIZER = CSS_PREFIX + "-resizer";
     var CSS_EDITING = CSS_PREFIX + "-editing";
     var CSS_ACTIVE = CSS_PREFIX + "-active";
     var CSS_SELECTED = CSS_PREFIX + "-selected";
     var CSS_READONLY = CSS_PREFIX + "-readonly";
-    function css(className) {
-        return '.' + className;
+
+    /**
+     * Create a new Cell instance matching the definitions in the value parameter.
+     * @param callback  Can be used by the cell to notify value changes that are not
+     *                  triggered from outside.
+     */
+    function createCell(row, col, value, callback) {
+        if (typeof value !== 'string' && typeof value !== 'number' && Array.isArray(value.options)) {
+            return new SelectCell(row, col, value, callback);
+        }
+        return new InputCell(row, col, value);
     }
+    var InputCell = /** @class */ (function () {
+        function InputCell(row, col, value) {
+            this.row = row;
+            this.col = col;
+            this.readonly = false;
+            var text;
+            if (typeof value === 'string' || typeof value === 'number') {
+                text = value.toString();
+            }
+            else {
+                this.readonly = value.readonly;
+                text = value.value.toString();
+            }
+            var className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
+            this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\">" + valueHTML(text) + "</div>");
+        }
+        InputCell.prototype.destroy = function () {
+        };
+        InputCell.prototype.selected = function () {
+            return isSelectCss(this.element);
+        };
+        InputCell.prototype.select = function (doSelect) {
+            if (doSelect === void 0) { doSelect = true; }
+            setSelectCSS(this.element, doSelect);
+            return this;
+        };
+        InputCell.prototype.activate = function (doActivate) {
+            if (doActivate === void 0) { doActivate = true; }
+            var classList = this.element.classList;
+            if (doActivate) {
+                classList.add(CSS_ACTIVE);
+                classList.add(CSS_SELECTED);
+            }
+            else {
+                classList.remove(CSS_ACTIVE);
+                classList.remove(CSS_EDITING);
+                if (this.input) {
+                    this.input.blur();
+                    remove(this.input);
+                    this.element.innerHTML = valueHTML(this.input.value);
+                    this.input = null;
+                }
+            }
+            return this;
+        };
+        InputCell.prototype.value = function () {
+            return this.input ? this.input.value : this.element.textContent;
+        };
+        InputCell.prototype.set = function (value) {
+            if (!this.readonly) {
+                if (this.input) {
+                    this.input.value = value;
+                }
+                else {
+                    this.element.innerHTML = valueHTML(value);
+                }
+            }
+        };
+        InputCell.prototype.startEdit = function (input, select) {
+            if (select === void 0) { select = false; }
+            if (this.readonly) {
+                return;
+            }
+            var element = this.element;
+            this.input = input;
+            input.value = element.textContent;
+            if (select) {
+                input.select();
+            }
+            input.style.width = element.offsetWidth - 2 + 'px';
+            element.classList.add(CSS_EDITING);
+            element.innerHTML = '';
+            element.appendChild(input);
+            input.focus();
+        };
+        InputCell.prototype.hasInput = function () {
+            return !!this.input;
+        };
+        return InputCell;
+    }());
+    function valueHTML(value) {
+        return "<span>" + value + "</span>";
+    }
+    var SelectCell = /** @class */ (function () {
+        function SelectCell(row, col, value, callback) {
+            var _this = this;
+            this.row = row;
+            this.col = col;
+            this.readonly = false;
+            this.options = null;
+            this.readonly = value.readonly;
+            this.options = value.options;
+            var className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
+            this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\"></div>");
+            this.selectElement = createElement("<select><select>");
+            setOptions(this.selectElement, this.options);
+            this.element.appendChild(this.selectElement);
+            this.listener = function () { return callback(_this); };
+            this.selectElement.addEventListener('change', this.listener);
+        }
+        SelectCell.prototype.destroy = function () {
+            this.selectElement.removeEventListener('change', this.listener);
+        };
+        SelectCell.prototype.value = function () {
+            return this.selectElement.value;
+        };
+        SelectCell.prototype.set = function (value) {
+            this.selectElement.value = value;
+        };
+        SelectCell.prototype.select = function (doSelect) {
+            if (doSelect === void 0) { doSelect = true; }
+            setSelectCSS(this.element, doSelect);
+            return this;
+        };
+        SelectCell.prototype.selected = function () {
+            return isSelectCss(this.element);
+        };
+        SelectCell.prototype.activate = function (doActivate) {
+            return this;
+        };
+        SelectCell.prototype.startEdit = function (input, selectContent) {
+        };
+        SelectCell.prototype.hasInput = function () {
+            return false;
+        };
+        return SelectCell;
+    }());
+    function setSelectCSS(element, doSelect) {
+        var classList = element.classList;
+        if (doSelect) {
+            classList.add(CSS_SELECTED);
+        }
+        else {
+            classList.remove(CSS_SELECTED);
+        }
+    }
+    function isSelectCss(element) {
+        return element.className.indexOf(CSS_SELECTED) >= 0;
+    }
+
+    var Row = /** @class */ (function () {
+        function Row(index) {
+            this.index = index;
+            this.cells = [];
+            this.element = createElement("<div data-ri=\"" + index + "\" class=\"" + CSS_ROW + "\"></div>");
+        }
+        Row.prototype.addCells = function (cells, updateValueCallback) {
+            var _this = this;
+            cells.forEach(function (c, columnIndex) {
+                var cell = createCell(_this.index, columnIndex, c, updateValueCallback);
+                _this.cells.push(cell);
+                _this.element.appendChild(cell.element);
+            });
+        };
+        return Row;
+    }());
+
+    var DefaultRenderer = /** @class */ (function () {
+        function DefaultRenderer(options) {
+            this.options = options;
+        }
+        DefaultRenderer.prototype.rerender = function (rows) {
+            var _a = this.options, grid = _a.grid, head = _a.head;
+            grid.innerHTML = '';
+            grid.appendChild(head);
+            rows.forEach(function (r) {
+                grid.appendChild(r.element);
+            });
+        };
+        DefaultRenderer.prototype.destroy = function () {
+            this.options = null;
+        };
+        return DefaultRenderer;
+    }());
+    var VirtualRenderer = /** @class */ (function () {
+        function VirtualRenderer(options) {
+            this.options = options;
+        }
+        VirtualRenderer.prototype.rerender = function (rows) {
+            var _a = this.options, grid = _a.grid, head = _a.head, container = _a.container, gridContainer = _a.gridContainer;
+            if (this.onScroll) {
+                container.removeEventListener('scroll', this.onScroll);
+            }
+            var itemPadding = 4;
+            var currentRange = {
+                start: undefined,
+                end: undefined,
+            };
+            var rowHeight = 34; // just a guess
+            grid.style.position = 'absolute';
+            var update = function (scrollTop) {
+                var itemCount = rows.length;
+                var viewportHeight = container.offsetHeight;
+                var totalContentHeight = itemCount * rowHeight;
+                var startIndex = Math.floor(scrollTop / rowHeight) - itemPadding;
+                if (startIndex % 2 > 0) {
+                    // always start with an odd index to keep alternating styles consistent
+                    startIndex -= 1;
+                }
+                startIndex = Math.max(0, startIndex);
+                var visibleNodesCount = Math.ceil(viewportHeight / rowHeight) + 2 * itemPadding;
+                visibleNodesCount = Math.min(itemCount - startIndex, visibleNodesCount);
+                var endIndex = startIndex + visibleNodesCount;
+                var offsetY = startIndex * rowHeight;
+                gridContainer.style.height = totalContentHeight + "px";
+                grid.style['top'] = offsetY + "px";
+                // Render
+                if (currentRange.start !== startIndex || currentRange.end !== endIndex) {
+                    var desiredRenderHeight = visibleNodesCount * rowHeight; // viewport + padding
+                    currentRange.start = startIndex;
+                    currentRange.end = endIndex;
+                    grid.innerHTML = '';
+                    grid.appendChild(head);
+                    var renderedHeight = 0;
+                    var count = 0;
+                    for (var i = startIndex; (i <= endIndex || renderedHeight < desiredRenderHeight) && i < rows.length; ++i) {
+                        var row = rows[i];
+                        grid.appendChild(row.element);
+                        renderedHeight += row.element.offsetHeight;
+                        ++count;
+                    }
+                    if (count) {
+                        rowHeight = renderedHeight / count;
+                    }
+                }
+            };
+            var updateFunc = update;
+            var animationFrame;
+            this.onScroll = function (e) {
+                if (animationFrame) {
+                    cancelAnimationFrame(animationFrame);
+                }
+                animationFrame = requestAnimationFrame(function () {
+                    updateFunc(e.target.scrollTop);
+                });
+            };
+            container.addEventListener('scroll', this.onScroll);
+            updateFunc(container.scrollTop);
+        };
+        VirtualRenderer.prototype.destroy = function () {
+            this.options.container.removeEventListener('scroll', this.onScroll);
+            this.options = null;
+            this.onScroll = null;
+        };
+        return VirtualRenderer;
+    }());
+
     var Grid = /** @class */ (function () {
         function Grid(container, options) {
             this.rows = [];
@@ -133,6 +439,7 @@
         }
         Grid.prototype.init = function (options) {
             var _this = this;
+            options.scroll = getScrollOptions(options);
             this.options = options;
             var container = this.container;
             var rows = this.rows;
@@ -146,23 +453,34 @@
                 this.cellInput = createElement("<input id=\"celled-cell-input\" type=\"text\" >");
             }
             this.hiddenInput = createElement('<div id="celled-hidden-input" style="position:absolute; z-index:-1; left:2px; top: 2px;" contenteditable tabindex="0"></div>');
+            if (options.scroll) {
+                container.classList.add(CSS_CONTAINER_SCROLL);
+            }
             var gridContainer = createElement("<div class=\"" + CSS_CONTAINER + "\"></div>");
-            var grid = this.grid = createElement("<div class=\"" + CSS_GRID + "\"><div class=\"" + CSS_ROW + " " + CSS_HEAD + "\"></div></div>");
+            var stickyHeader = options.scroll.stickyHeader;
+            var headCss = CSS_ROW + " " + CSS_HEAD + " " + (stickyHeader ? CSS_HEAD_STICKY : '');
+            var head = createElement("<div class=\"" + headCss + "\"></div>");
+            var grid = this.grid = createElement("<div class=\"" + CSS_GRID + "\"></div>");
             container.appendChild(gridContainer);
             gridContainer.appendChild(this.hiddenInput);
             gridContainer.appendChild(grid);
-            var head = query(container, css(CSS_HEAD));
             options.cols.forEach(function (c, index) { return head.appendChild(_this.createHeadCell(c, index)); });
+            var renderOptions = { container: container, gridContainer: gridContainer, grid: grid, head: head };
+            this.render = options.scroll.virtualScroll ? new VirtualRenderer(renderOptions) : new DefaultRenderer(renderOptions);
             this.createRows();
             this.initMouse();
             this.initKeys();
             this.initClipboard();
-            queryAll(head, css(CSS_CELL)).forEach(function (c) { return c.style.width = c.offsetWidth + 'px'; });
+            queryAll(head, css(CSS_CELL)).forEach(function (c) {
+                c.style.width = c.offsetWidth + 'px';
+            });
         };
         Grid.prototype.destroy = function () {
+            this.render.destroy();
             this.cleanups.forEach(function (c) { return c(); });
             this.cleanups.length = 0;
             remove(this.grid);
+            this.cells.forEach(function (c) { return c.destroy(); });
             this.grid = null;
             this.hiddenInput = null;
             this.cellInput = null;
@@ -180,10 +498,11 @@
             if (this.options.canAddRows) {
                 [].push.apply(this.options.rows, rows);
                 rows.forEach(function (r) {
-                    var newRow = _this.createRow(r);
+                    var newRow = _this.createAndAddRow(r);
                     newRow.cells.forEach(function (c) { return _this.emitInput(c); });
                 });
                 this.flattenCells();
+                this.renderRows();
             }
         };
         Grid.prototype.addRow = function () {
@@ -266,41 +585,51 @@
             // Prevent scrolling up if input was blurred at the end of a long table.
             this.hiddenInput.focus({ preventScroll: true });
         };
-        Grid.prototype.createRow = function (r) {
+        Grid.prototype.createAndAddRow = function (r) {
+            var _this = this;
             var row = new Row(this.rows.length);
-            row.addCells(r);
+            row.addCells(r, function (cell) { return _this.emitInput(cell); });
             this.rows.push(row);
-            this.grid.appendChild(row.element);
             return row;
         };
         Grid.prototype.createRows = function () {
             var _this = this;
             this.rows = [];
-            this.options.rows.forEach(function (r) { return _this.createRow(r); });
+            this.options.rows.forEach(function (r) { return _this.createAndAddRow(r); });
             this.flattenCells();
+            this.renderRows();
+        };
+        Grid.prototype.renderRows = function () {
+            this.render.rerender(this.rows);
         };
         Grid.prototype.flattenCells = function () {
             this.cells = this.rows.reduce(function (a, b) { return a.concat(b.cells); }, []);
         };
         Grid.prototype.initMouse = function () {
             var _this = this;
-            var rows = this.rows;
             var downCellIndex;
             var downRowIndex;
             var selectionIdentifier = null;
             var rememberSelection = function (r1, c1, r2, c2) { return '' + r1 + c1 + r2 + c2; };
-            var getTargetCell = function (e) {
-                var cell = e.target;
+            var findTargetCell = function (cell, level) {
+                if (level === void 0) { level = 0; }
                 if (!cell || !cell.parentElement) {
                     return;
                 }
                 var cellIndexAttr = cell.getAttribute('data-ci');
+                if (cellIndexAttr === null && level < 2) {
+                    return findTargetCell(cell.parentElement, level + 1);
+                }
                 var rowIndexAttr = cell.parentElement.getAttribute('data-ri');
                 var cellIndex = +cellIndexAttr;
                 var rowIndex = +rowIndexAttr;
                 if (cellIndexAttr && rowIndexAttr && !isNaN(cellIndex) && !isNaN(rowIndex)) {
                     return _this.rows[rowIndex].cells[cellIndex];
                 }
+            };
+            var getTargetCell = function (e) {
+                var cell = e.target;
+                return findTargetCell(cell);
             };
             var mousemove = function (moveEvent) {
                 var targetCell = getTargetCell(moveEvent);
@@ -334,10 +663,15 @@
                 if (cell) {
                     var timeSinceLast = Date.now() - lastMouseDown;
                     lastMouseDown = Date.now();
-                    if (cell.input) {
+                    if (cell.hasInput()) {
+                        // The cell is already in edit mode. Do nothing and continue with default event handling
                         return;
                     }
                     else if (cell === _this.activeCell && !cell.readonly && timeSinceLast < 300) {
+                        // Double click on cell to start edit mode
+                        // if (Array.isArray(cell.options)) {
+                        //     cell.startSelect(this.cellSelect);
+                        // }
                         cell.startEdit(_this.cellInput);
                         _this.emitFocus();
                     }
@@ -435,7 +769,7 @@
             }));
             var onInput = function (e) {
                 var activeCell = _this.activeCell;
-                if (activeCell && !activeCell.readonly && activeCell.input) {
+                if (activeCell && !activeCell.readonly && activeCell.hasInput()) {
                     _this.updatValue(activeCell);
                     _this.cells.forEach(function (cell) {
                         if (cell.selected() && cell !== activeCell) {
@@ -460,7 +794,7 @@
             }));
             this.cleanups.push(on(hiddenInput, 'keypress', function (e) {
                 var activeCell = _this.activeCell;
-                if (activeCell && !activeCell.readonly && !activeCell.input) {
+                if (activeCell && !activeCell.readonly && !activeCell.hasInput()) {
                     activeCell.startEdit(cellInput, true);
                     _this.emitFocus();
                 }
@@ -586,138 +920,24 @@
         };
         return Grid;
     }());
-    var Cell = /** @class */ (function () {
-        function Cell(row, col, value) {
-            this.row = row;
-            this.col = col;
-            this.readonly = false;
-            var text;
-            if (typeof value === 'string' || typeof value === 'number') {
-                text = value.toString();
-            }
-            else {
-                this.readonly = value.readonly;
-                text = value.value.toString();
-            }
-            var className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
-            this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\">" + text + "</div>");
+    function css(className) {
+        return '.' + className;
+    }
+    function trueOr(value) {
+        return value === false ? false : true;
+    }
+    function getScrollOptions(options) {
+        var scroll = options.scroll;
+        if (!scroll) {
+            return {};
         }
-        Cell.prototype.selected = function () {
-            return this.element.className.indexOf(CSS_SELECTED) >= 0;
+        return {
+            enabled: trueOr(scroll.enabled),
+            virtualScroll: trueOr(scroll.virtualScroll),
+            stickyHeader: trueOr(scroll.stickyHeader),
         };
-        Cell.prototype.select = function (doSelect) {
-            if (doSelect === void 0) { doSelect = true; }
-            var classList = this.element.classList;
-            if (doSelect) {
-                classList.add(CSS_SELECTED);
-            }
-            else {
-                classList.remove(CSS_SELECTED);
-            }
-            return this;
-        };
-        Cell.prototype.activate = function (doActivate) {
-            if (doActivate === void 0) { doActivate = true; }
-            var classList = this.element.classList;
-            if (doActivate) {
-                classList.add(CSS_ACTIVE);
-                classList.add(CSS_SELECTED);
-            }
-            else {
-                classList.remove(CSS_ACTIVE);
-                classList.remove(CSS_EDITING);
-                if (this.input) {
-                    this.input.blur();
-                    remove(this.input);
-                    this.element.innerHTML = this.input.value;
-                    this.input = null;
-                }
-            }
-            return this;
-        };
-        Cell.prototype.value = function () {
-            return this.input ? this.input.value : this.element.innerHTML;
-        };
-        Cell.prototype.set = function (value) {
-            if (!this.readonly) {
-                if (this.input) {
-                    this.input.value = value;
-                }
-                else {
-                    this.element.innerHTML = value;
-                }
-            }
-        };
-        Cell.prototype.startEdit = function (input, select) {
-            if (select === void 0) { select = false; }
-            if (this.readonly) {
-                return;
-            }
-            var element = this.element;
-            this.input = input;
-            input.value = element.innerHTML;
-            if (select) {
-                input.select();
-            }
-            input.style.width = element.offsetWidth - 2 + 'px';
-            element.classList.add(CSS_EDITING);
-            element.innerHTML = '';
-            element.appendChild(input);
-            input.focus();
-        };
-        return Cell;
-    }());
-    var Row = /** @class */ (function () {
-        function Row(index) {
-            this.index = index;
-            this.cells = [];
-            this.element = createElement("<div data-ri=\"" + index + "\" class=\"" + CSS_ROW + "\"></div>");
-        }
-        Row.prototype.addCells = function (cells) {
-            var _this = this;
-            cells.forEach(function (c, columnIndex) {
-                var cell = new Cell(_this.index, columnIndex, c);
-                _this.cells.push(cell);
-                _this.element.appendChild(cell.element);
-            });
-        };
-        return Row;
-    }());
+    }
     // ----
-    function query(elOrCss, cssSelector) {
-        if (!cssSelector) {
-            cssSelector = elOrCss;
-            elOrCss = document;
-        }
-        return elOrCss.querySelector(cssSelector);
-    }
-    function queryAll(elOrCss, cssSelector) {
-        if (!cssSelector) {
-            cssSelector = elOrCss;
-            elOrCss = document;
-        }
-        return [].slice.call(elOrCss.querySelectorAll(cssSelector));
-    }
-    function createElement(html) {
-        var div = document.createElement('div');
-        div.innerHTML = html.trim();
-        return div.firstChild;
-    }
-    function on(element, event, listener) {
-        element.addEventListener(event, listener);
-        return offFunc(element, event, listener);
-    }
-    function off(element, event, listener) {
-        element.removeEventListener(event, listener);
-    }
-    function offFunc(element, event, listener) {
-        return function () { return element.removeEventListener(event, listener); };
-    }
-    function remove(node) {
-        if (node.parentNode) {
-            node.parentElement.removeChild(node);
-        }
-    }
 
     exports.Grid = Grid;
 

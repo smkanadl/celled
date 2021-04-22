@@ -1,21 +1,12 @@
 import { EventEmitter, EventHandler, EventHandlerBase } from './events';
 import { parseCSV, writeCSV } from './csv';
+import { query, remove, createElement, queryAll, off, on } from './dom';
+import { GridOptions, RowOptions, ScrollOptions } from './options';
+import { Cell } from './cell';
+import { CSS_CELL, CSS_CONTAINER, CSS_CONTAINER_SCROLL, CSS_GRID, CSS_HEAD, CSS_HEAD_STICKY, CSS_RESIZER, CSS_ROW } from './css';
+import { Row } from './row';
+import { DefaultRenderer, Renderer, VirtualRenderer } from './render';
 
-export type CellValue = string | number;
-
-export interface CellValueOptions {
-    readonly?: boolean;
-    value: CellValue;
-}
-
-export type RowOptions = Array<CellValue | CellValueOptions>;
-
-export interface GridOptions {
-    cols: Array<string | number>;
-    rows: Array<RowOptions>;
-    input?: HTMLInputElement | (() => HTMLInputElement);
-    canAddRows?: boolean;
-}
 
 export interface InputArgs {
     grid: Grid;
@@ -29,25 +20,9 @@ export interface SelectArgs {
     selection: Array<{ row: number, col: number }>;
 }
 
-const CSS_PREFIX = 'ced';
-const CSS_CONTAINER = `${CSS_PREFIX}-grid-container`;
-const CSS_GRID = `${CSS_PREFIX}-grid`;
-const CSS_ROW = `${CSS_PREFIX}-row`;
-const CSS_CELL = `${CSS_PREFIX}-cell`;
-const CSS_HEAD = `${CSS_PREFIX}-head`;
-const CSS_RESIZER = `${CSS_PREFIX}-resizer`;
-const CSS_EDITING = `${CSS_PREFIX}-editing`;
-const CSS_ACTIVE = `${CSS_PREFIX}-active`;
-const CSS_SELECTED = `${CSS_PREFIX}-selected`;
-const CSS_READONLY = `${CSS_PREFIX}-readonly`;
-
-function css(className) {
-    return '.' + className;
-}
 
 export class Grid {
-
-    private container: Element;
+    private container: HTMLElement;
     private grid: HTMLElement;
     private rows: Row[] = [];
     private cells: Cell[] = [];
@@ -57,15 +32,17 @@ export class Grid {
     private cellInput: HTMLInputElement;
     private hiddenInput: HTMLElement;
     private cleanups: Array<() => any> = [];
+    private render: Renderer;
 
-    constructor(container: string | Element, options?: GridOptions) {
-        this.container = typeof container === 'string' ? query(container) : container;
+    constructor(container: string | HTMLElement, options?: GridOptions) {
+        this.container = typeof container === 'string' ? query<HTMLElement>(container) : container;
         if (options) {
             this.init(options);
         }
     }
 
     init(options: GridOptions) {
+        options.scroll = getScrollOptions(options);
         this.options = options;
         const container = this.container;
         const rows = this.rows;
@@ -81,26 +58,40 @@ export class Grid {
         }
         this.hiddenInput = createElement(
             '<div id="celled-hidden-input" style="position:absolute; z-index:-1; left:2px; top: 2px;" contenteditable tabindex="0"></div>');
+
+        if (options.scroll) {
+            container.classList.add(CSS_CONTAINER_SCROLL);
+        }
         const gridContainer = createElement(`<div class="${CSS_CONTAINER}"></div>`);
-        const grid = this.grid = createElement(
-            `<div class="${CSS_GRID}"><div class="${CSS_ROW} ${CSS_HEAD}"></div></div>`);
+
+        const stickyHeader = options.scroll.stickyHeader;
+        const headCss = `${CSS_ROW} ${CSS_HEAD} ${stickyHeader ? CSS_HEAD_STICKY : ''}`;
+        const head = createElement(`<div class="${headCss}"></div>`);
+        const grid = this.grid = createElement(`<div class="${CSS_GRID}"></div>`);
 
         container.appendChild(gridContainer);
         gridContainer.appendChild(this.hiddenInput);
         gridContainer.appendChild(grid);
-        const head = query(container, css(CSS_HEAD));
         options.cols.forEach((c, index) => head.appendChild(this.createHeadCell(c, index)));
+
+        const renderOptions = { container, gridContainer, grid, head };
+        this.render = options.scroll.virtualScroll ? new VirtualRenderer(renderOptions) : new DefaultRenderer(renderOptions);
+
         this.createRows();
         this.initMouse();
         this.initKeys();
         this.initClipboard();
-        queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => c.style.width = c.offsetWidth + 'px');
+        queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => {
+            c.style.width = c.offsetWidth + 'px';
+        });
     }
 
     destroy() {
+        this.render.destroy();
         this.cleanups.forEach(c => c());
         this.cleanups.length = 0;
         remove(this.grid);
+        this.cells.forEach(c => c.destroy());
         this.grid = null;
         this.hiddenInput = null;
         this.cellInput = null;
@@ -127,10 +118,11 @@ export class Grid {
         if (this.options.canAddRows) {
             [].push.apply(this.options.rows, rows);
             rows.forEach(r => {
-                const newRow = this.createRow(r);
+                const newRow = this.createAndAddRow(r);
                 newRow.cells.forEach(c => this.emitInput(c));
             });
             this.flattenCells();
+            this.renderRows();
         }
     }
 
@@ -216,18 +208,22 @@ export class Grid {
         this.hiddenInput.focus({ preventScroll: true });
     }
 
-    private createRow(r: RowOptions): Row {
+    private createAndAddRow(r: RowOptions): Row {
         const row = new Row(this.rows.length);
-        row.addCells(r);
+        row.addCells(r, cell => this.emitInput(cell));
         this.rows.push(row);
-        this.grid.appendChild(row.element);
         return row;
     }
 
     private createRows() {
         this.rows = [];
-        this.options.rows.forEach(r => this.createRow(r));
+        this.options.rows.forEach(r => this.createAndAddRow(r));
         this.flattenCells();
+        this.renderRows();
+    }
+
+    private renderRows() {
+        this.render.rerender(this.rows);
     }
 
     private flattenCells() {
@@ -235,25 +231,31 @@ export class Grid {
     }
 
     private initMouse() {
-        const rows = this.rows;
         let downCellIndex: number;
         let downRowIndex: number;
 
         let selectionIdentifier: string = null;
         const rememberSelection = (r1, c1, r2, c2) => '' + r1 + c1 + r2 + c2;
 
-        const getTargetCell = (e: MouseEvent) => {
-            const cell = e.target as Element;
+        const findTargetCell = (cell: Element, level = 0): Cell => {
             if (!cell || !cell.parentElement) {
                 return;
             }
             const cellIndexAttr = cell.getAttribute('data-ci');
+            if (cellIndexAttr === null && level < 2) {
+                return findTargetCell(cell.parentElement, level + 1);
+            }
             const rowIndexAttr = cell.parentElement.getAttribute('data-ri');
             const cellIndex = +cellIndexAttr;
             const rowIndex = +rowIndexAttr;
             if (cellIndexAttr && rowIndexAttr && !isNaN(cellIndex) && !isNaN(rowIndex)) {
                 return this.rows[rowIndex].cells[cellIndex];
             }
+        };
+
+        const getTargetCell = (e: MouseEvent) => {
+            const cell = e.target as Element;
+            return findTargetCell(cell);
         };
 
         const mousemove = (moveEvent: MouseEvent) => {
@@ -290,10 +292,15 @@ export class Grid {
             if (cell) {
                 const timeSinceLast = Date.now() - lastMouseDown;
                 lastMouseDown = Date.now();
-                if (cell.input) {
+                if (cell.hasInput()) {
+                    // The cell is already in edit mode. Do nothing and continue with default event handling
                     return;
                 }
                 else if (cell === this.activeCell && !cell.readonly && timeSinceLast < 300) {
+                    // Double click on cell to start edit mode
+                    // if (Array.isArray(cell.options)) {
+                    //     cell.startSelect(this.cellSelect);
+                    // }
                     cell.startEdit(this.cellInput);
                     this.emitFocus();
                 }
@@ -394,7 +401,7 @@ export class Grid {
 
         const onInput = (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
-            if (activeCell && !activeCell.readonly && activeCell.input) {
+            if (activeCell && !activeCell.readonly && activeCell.hasInput()) {
                 this.updatValue(activeCell);
                 this.cells.forEach(cell => {
                     if (cell.selected() && cell !== activeCell) {
@@ -421,7 +428,7 @@ export class Grid {
 
         this.cleanups.push(on(hiddenInput, 'keypress', (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
-            if (activeCell && !activeCell.readonly && !activeCell.input) {
+            if (activeCell && !activeCell.readonly && !activeCell.hasInput()) {
                 activeCell.startEdit(cellInput, true);
                 this.emitFocus();
             }
@@ -556,151 +563,25 @@ export class Grid {
     }
 }
 
-class Cell {
-    element: HTMLElement;
-    input: HTMLInputElement;
-    readonly = false;
 
-    constructor(public row: number, public col: number, value: CellValue | CellValueOptions) {
-        let text: string;
-        if (typeof value === 'string' || typeof value === 'number') {
-            text = value.toString();
-        }
-        else {
-            this.readonly = value.readonly;
-            text = value.value.toString();
-        }
-        const className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
-        this.element = createElement(`<div data-ci="${col}" class="${className}">${text}</div>`);
-    }
-
-    selected() {
-        return this.element.className.indexOf(CSS_SELECTED) >= 0;
-    }
-
-    select(doSelect = true) {
-        const classList = this.element.classList;
-        if (doSelect) {
-            classList.add(CSS_SELECTED);
-        }
-        else {
-            classList.remove(CSS_SELECTED);
-        }
-        return this;
-    }
-
-    activate(doActivate = true) {
-        const classList = this.element.classList;
-        if (doActivate) {
-            classList.add(CSS_ACTIVE);
-            classList.add(CSS_SELECTED);
-        }
-        else {
-            classList.remove(CSS_ACTIVE);
-            classList.remove(CSS_EDITING);
-            if (this.input) {
-                this.input.blur();
-                remove(this.input);
-                this.element.innerHTML = this.input.value;
-                this.input = null;
-            }
-        }
-        return this;
-    }
-
-    value() {
-        return this.input ? this.input.value : this.element.innerHTML;
-    }
-
-    set(value: string) {
-        if (!this.readonly) {
-            if (this.input) {
-                this.input.value = value;
-            }
-            else {
-                this.element.innerHTML = value;
-            }
-        }
-    }
-
-    startEdit(input: HTMLInputElement, select = false) {
-        if (this.readonly) {
-            return;
-        }
-        const element = this.element;
-        this.input = input;
-        input.value = element.innerHTML;
-        if (select) {
-            input.select();
-        }
-        input.style.width = element.offsetWidth - 2 + 'px';
-        element.classList.add(CSS_EDITING);
-        element.innerHTML = '';
-        element.appendChild(input);
-        input.focus();
-    }
+function css(className) {
+    return '.' + className;
 }
 
-class Row {
-    element: Element;
-    cells: Cell[] = [];
+function trueOr(value: boolean): boolean {
+    return value === false ? false : true;
+}
 
-    constructor(public index: number) {
-        this.element = createElement(`<div data-ri="${index}" class="${CSS_ROW}"></div>`) as Element;
+function getScrollOptions(options: GridOptions): ScrollOptions {
+    const scroll = options.scroll;
+    if (!scroll) {
+        return {};
     }
-
-    addCells(cells: Array<CellValue | CellValueOptions>) {
-        cells.forEach((c, columnIndex) => {
-            const cell = new Cell(this.index, columnIndex, c);
-            this.cells.push(cell);
-            this.element.appendChild(cell.element);
-        });
-    }
+    return {
+        enabled: trueOr(scroll.enabled),
+        virtualScroll: trueOr(scroll.virtualScroll),
+        stickyHeader: trueOr(scroll.stickyHeader),
+    };
 }
 
 // ----
-function query(elOrCss, cssSelector?): Element {
-    if (!cssSelector) {
-        cssSelector = elOrCss;
-        elOrCss = document;
-    }
-    return elOrCss.querySelector(cssSelector);
-}
-
-function queryAll(elOrCss, cssSelector?): Element[] {
-    if (!cssSelector) {
-        cssSelector = elOrCss;
-        elOrCss = document;
-    }
-    return [].slice.call(elOrCss.querySelectorAll(cssSelector));
-}
-
-function createElement<T extends HTMLElement>(html: string): T {
-    const div = document.createElement('div');
-    div.innerHTML = html.trim();
-    return div.firstChild as T;
-}
-
-function on(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
-    element.addEventListener(event, listener);
-    return offFunc(element, event, listener);
-}
-
-function off(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
-    element.removeEventListener(event, listener);
-}
-
-function offFunc(element: Node, event: string, listener: EventListenerOrEventListenerObject) {
-    return () => element.removeEventListener(event, listener);
-}
-
-function getKey(e: KeyboardEvent) {
-    e = e || window.event as KeyboardEvent;
-    return String.fromCharCode(e.keyCode || e.which);
-}
-
-function remove(node: Node) {
-    if (node.parentNode) {
-        node.parentElement.removeChild(node);
-    }
-}

@@ -1,6 +1,7 @@
-import { Grid, GridOptions, InputArgs, SelectArgs } from './grid';
+import { Grid, InputArgs, SelectArgs } from './grid';
 import { getByText, fireEvent } from '@testing-library/dom';
 import { clearLine } from 'readline';
+import { GridOptions } from './options';
 
 function queryAll<T extends Element>(elementOrCss: ParentNode|string, cssOrEmpty?: string): T[] {
     let element: ParentNode = document;

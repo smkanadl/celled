@@ -1,19 +1,41 @@
 .ced-grid-container {
   position: relative; }
 
+.ced-grid-container-scroll {
+  overflow: auto; }
+  .ced-grid-container-scroll .ced-grid {
+    will-change: transform; }
+    .ced-grid-container-scroll .ced-grid .ced-cell:not(.ced-editing):not(.ced-select-cell)::before {
+      content: '&nbsp;';
+      visibility: hidden; }
+    .ced-grid-container-scroll .ced-grid .ced-cell:not(.ced-editing):not(.ced-select-cell) span {
+      position: absolute;
+      left: 0.5em;
+      right: 0.5em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis; }
+
 .ced-grid {
   display: table;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
   outline: none;
   color: #333;
-  background: #fff; }
+  background: #fff;
+  position: relative; }
   .ced-grid, .ced-grid *, .ced-grid *::before, .ced-grid *::after {
     box-sizing: border-box; }
   .ced-grid .ced-head {
     font-weight: 700; }
     .ced-grid .ced-head.ced-row .ced-cell {
-      background: #eee; }
+      background: #eee;
+      border-top: 1px solid #ccc; }
+  .ced-grid .ced-head.ced-head-sticky .ced-cell {
+    position: sticky;
+    top: 0;
+    z-index: 10; }
   .ced-grid .ced-resizer {
     position: absolute;
     right: 0;
@@ -24,7 +46,7 @@
     cursor: col-resize; }
   .ced-grid .ced-row {
     display: table-row; }
-  .ced-grid input, .ced-grid input[type=number], .ced-grid input[type=text] {
+  .ced-grid input, .ced-grid input[type=number], .ced-grid input[type=text], .ced-grid select {
     border: 0;
     margin: 0;
     padding: 0.25em 0.5em;
@@ -35,13 +57,20 @@
     font-size: inherit;
     font-family: inherit;
     text-align: left; }
+  .ced-grid select {
+    width: 100%;
+    background: transparent; }
   .ced-grid .ced-row:nth-child(odd) .ced-cell:not(.ced-selected):not(.ced-active) {
     background: #eee; }
+  .ced-grid .ced-row .ced-cell {
+    border-bottom: 1px solid #ccc;
+    border-right: 1px solid #ccc; }
+    .ced-grid .ced-row .ced-cell:first-child {
+      border-left: 1px solid #ccc; }
   .ced-grid .ced-row .ced-cell {
     cursor: default;
     position: relative;
     display: table-cell;
-    border: 1px solid #ccc;
     padding: 0.25em 0.5em;
     height: 2.1em;
     line-height: 1.5em;
@@ -52,6 +81,8 @@
       background: #fff;
       color: #333;
       padding: 0; }
+    .ced-grid .ced-row .ced-cell.ced-select-cell {
+      padding: 0 .5em 0 0; }
   .ced-grid .ced-cell.ced-selected.ced-active, .ced-grid .ced-cell.ced-active {
     background: #0056b3;
     color: #fff; }
