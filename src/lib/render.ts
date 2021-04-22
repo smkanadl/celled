@@ -13,8 +13,10 @@ export interface Renderer {
 }
 
 export class DefaultRenderer implements Renderer {
+
     constructor(private options: RenderOptions) {
     }
+
     rerender(rows: Row[]) {
         const { grid, head } = this.options;
         grid.innerHTML = '';
@@ -56,7 +58,6 @@ export class VirtualRenderer implements Renderer {
         const update = (scrollTop: number) => {
             const itemCount = rows.length;
             const viewportHeight = container.offsetHeight;
-
             const totalContentHeight = itemCount * rowHeight;
 
             let startIndex = Math.floor(scrollTop / rowHeight) - itemPadding;
@@ -69,28 +70,41 @@ export class VirtualRenderer implements Renderer {
             let visibleNodesCount = Math.ceil(viewportHeight / rowHeight) + 2 * itemPadding;
             visibleNodesCount = Math.min(itemCount - startIndex, visibleNodesCount);
             const endIndex = startIndex + visibleNodesCount;
-
             const offsetY = startIndex * rowHeight;
+
             gridContainer.style.height = `${totalContentHeight}px`;
             grid.style['top'] = `${offsetY}px`;
 
             // Render
             if (currentRange.start !== startIndex || currentRange.end !== endIndex) {
-                const desiredRenderHeight = visibleNodesCount * rowHeight;
+                const desiredRenderHeight = visibleNodesCount * rowHeight; // viewport + padding
                 currentRange.start = startIndex;
                 currentRange.end = endIndex;
                 grid.innerHTML = '';
                 grid.appendChild(head);
+                const headerHeight = grid.offsetHeight;
                 let renderedHeight = 0;
-                let count = 0;
-                for (let i = startIndex; (i <= endIndex || renderedHeight < desiredRenderHeight) && i < rows.length; ++i) {
+
+                // First add items from start to end index at once
+                const fragment = document.createDocumentFragment();
+                let i = startIndex;
+                for (; i <= endIndex && i < rows.length; ++i) {
+                    const row = rows[i];
+                    fragment.appendChild(row.element);
+                }
+                grid.appendChild(fragment);
+                renderedHeight = grid.offsetHeight - headerHeight;
+
+                // Add items until we reached the desired height
+                for (; renderedHeight < desiredRenderHeight && i < rows.length; ++i) {
                     const row = rows[i];
                     grid.appendChild(row.element);
                     renderedHeight += row.element.offsetHeight;
-                    ++count;
                 }
-                if (count) {
-                    rowHeight = renderedHeight / count;
+
+                const numberOfRenderedItems = i - startIndex;
+                if (numberOfRenderedItems) {
+                    rowHeight = renderedHeight / numberOfRenderedItems;
                 }
             }
         };

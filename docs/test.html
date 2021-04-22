@@ -37,14 +37,25 @@
 
     <script>
         function create() {
-            return {
+            const options = {
                 cols: ['P', 'A', 'B'],
-                rows: Array(10000).fill(0).map((x, i) => [i, Math.round((Math.random() * 1e6)).toString(), Math.random().toString()]),
+                rows: Array(10000).fill(0).map((x, i) => [
+                    i,
+                    Math.round((Math.random() * 1e6)).toString(),
+                    Math.random().toString()]),
                 canAddRows: true,
                 scroll: {
                     stickyHeader: true,
                 }
-            }
+            };
+
+            options.rows[1][1] = {
+                value: 1, options: [1, 2, 3, 4, 5]
+            };
+            [30, 31, 32].forEach(i => {
+                options.rows[i][2] = options.rows[i][1] = Array(15).fill(options.rows[i][1]).join(' ')
+            });
+            return options;
         }
 
         var gridContainer = document.getElementById('grid1');

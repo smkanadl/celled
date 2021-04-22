@@ -5,6 +5,16 @@
   overflow: auto; }
   .ced-grid-container-scroll .ced-grid {
     will-change: transform; }
+    .ced-grid-container-scroll .ced-grid .ced-cell:not(.ced-editing):not(.ced-select-cell)::before {
+      content: '&nbsp;';
+      visibility: hidden; }
+    .ced-grid-container-scroll .ced-grid .ced-cell:not(.ced-editing):not(.ced-select-cell) span {
+      position: absolute;
+      left: 0.5em;
+      right: 0.5em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis; }
 
 .ced-grid {
   display: table;

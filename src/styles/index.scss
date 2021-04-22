@@ -35,7 +35,7 @@ $cell-padding: 0.25em $cell-padding-x;
         will-change: transform;
         .#{$class-cell}:not(.#{$class-editing}):not(.#{$class-select-cell}) {
             &::before {
-                content: '&nbsp;';
+                content: '.';
                 visibility: hidden;
             }
             span {

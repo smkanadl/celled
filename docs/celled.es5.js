@@ -187,7 +187,7 @@ var InputCell = /** @class */ (function () {
             text = value.value.toString();
         }
         var className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
-        this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\">" + text + "</div>");
+        this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\">" + valueHTML(text) + "</div>");
     }
     InputCell.prototype.destroy = function () {
     };
@@ -212,14 +212,14 @@ var InputCell = /** @class */ (function () {
             if (this.input) {
                 this.input.blur();
                 remove(this.input);
-                this.element.innerHTML = this.input.value;
+                this.element.innerHTML = valueHTML(this.input.value);
                 this.input = null;
             }
         }
         return this;
     };
     InputCell.prototype.value = function () {
-        return this.input ? this.input.value : this.element.innerHTML;
+        return this.input ? this.input.value : this.element.textContent;
     };
     InputCell.prototype.set = function (value) {
         if (!this.readonly) {
@@ -227,7 +227,7 @@ var InputCell = /** @class */ (function () {
                 this.input.value = value;
             }
             else {
-                this.element.innerHTML = value;
+                this.element.innerHTML = valueHTML(value);
             }
         }
     };
@@ -238,7 +238,7 @@ var InputCell = /** @class */ (function () {
         }
         var element = this.element;
         this.input = input;
-        input.value = element.innerHTML;
+        input.value = element.textContent;
         if (select) {
             input.select();
         }
@@ -253,6 +253,9 @@ var InputCell = /** @class */ (function () {
     };
     return InputCell;
 }());
+function valueHTML(value) {
+    return "<span>" + value + "</span>";
+}
 var SelectCell = /** @class */ (function () {
     function SelectCell(row, col, value, callback) {
         var _this = this;
@@ -353,10 +356,10 @@ var VirtualRenderer = /** @class */ (function () {
         if (this.onScroll) {
             container.removeEventListener('scroll', this.onScroll);
         }
-        var nodePadding = 4;
+        var itemPadding = 4;
         var currentRange = {
-            start: 0,
-            end: 0,
+            start: undefined,
+            end: undefined,
         };
         var rowHeight = 34; // just a guess
         grid.style.position = 'absolute';
@@ -364,13 +367,13 @@ var VirtualRenderer = /** @class */ (function () {
             var itemCount = rows.length;
             var viewportHeight = container.offsetHeight;
             var totalContentHeight = itemCount * rowHeight;
-            var startIndex = Math.floor(scrollTop / rowHeight) - nodePadding;
+            var startIndex = Math.floor(scrollTop / rowHeight) - itemPadding;
             if (startIndex % 2 > 0) {
                 // always start with an odd index to keep alternating styles consistent
                 startIndex -= 1;
             }
             startIndex = Math.max(0, startIndex);
-            var visibleNodesCount = Math.ceil(viewportHeight / rowHeight) + 2 * nodePadding;
+            var visibleNodesCount = Math.ceil(viewportHeight / rowHeight) + 2 * itemPadding;
             visibleNodesCount = Math.min(itemCount - startIndex, visibleNodesCount);
             var endIndex = startIndex + visibleNodesCount;
             var offsetY = startIndex * rowHeight;
@@ -378,13 +381,14 @@ var VirtualRenderer = /** @class */ (function () {
             grid.style['top'] = offsetY + "px";
             // Render
             if (currentRange.start !== startIndex || currentRange.end !== endIndex) {
+                var desiredRenderHeight = visibleNodesCount * rowHeight; // viewport + padding
                 currentRange.start = startIndex;
                 currentRange.end = endIndex;
                 grid.innerHTML = '';
                 grid.appendChild(head);
                 var renderedHeight = 0;
                 var count = 0;
-                for (var i = startIndex; (i <= endIndex || renderedHeight < viewportHeight) && i < rows.length; ++i) {
+                for (var i = startIndex; (i <= endIndex || renderedHeight < desiredRenderHeight) && i < rows.length; ++i) {
                     var row = rows[i];
                     grid.appendChild(row.element);
                     renderedHeight += row.element.offsetHeight;
@@ -395,11 +399,18 @@ var VirtualRenderer = /** @class */ (function () {
                 }
             }
         };
+        var updateFunc = update;
+        var animationFrame;
         this.onScroll = function (e) {
-            update(e.target.scrollTop);
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            animationFrame = requestAnimationFrame(function () {
+                updateFunc(e.target.scrollTop);
+            });
         };
         container.addEventListener('scroll', this.onScroll);
-        update(container.scrollTop);
+        updateFunc(container.scrollTop);
     };
     VirtualRenderer.prototype.destroy = function () {
         this.options.container.removeEventListener('scroll', this.onScroll);
@@ -422,6 +433,7 @@ var Grid = /** @class */ (function () {
     }
     Grid.prototype.init = function (options) {
         var _this = this;
+        options.scroll = getScrollOptions(options);
         this.options = options;
         var container = this.container;
         var rows = this.rows;
@@ -439,7 +451,7 @@ var Grid = /** @class */ (function () {
             container.classList.add(CSS_CONTAINER_SCROLL);
         }
         var gridContainer = createElement("<div class=\"" + CSS_CONTAINER + "\"></div>");
-        var stickyHeader = options.scroll && options.scroll.stickyHeader;
+        var stickyHeader = options.scroll.stickyHeader;
         var headCss = CSS_ROW + " " + CSS_HEAD + " " + (stickyHeader ? CSS_HEAD_STICKY : '');
         var head = createElement("<div class=\"" + headCss + "\"></div>");
         var grid = this.grid = createElement("<div class=\"" + CSS_GRID + "\"></div>");
@@ -448,7 +460,7 @@ var Grid = /** @class */ (function () {
         gridContainer.appendChild(grid);
         options.cols.forEach(function (c, index) { return head.appendChild(_this.createHeadCell(c, index)); });
         var renderOptions = { container: container, gridContainer: gridContainer, grid: grid, head: head };
-        this.render = options.scroll ? new VirtualRenderer(renderOptions) : new DefaultRenderer(renderOptions);
+        this.render = options.scroll.virtualScroll ? new VirtualRenderer(renderOptions) : new DefaultRenderer(renderOptions);
         this.createRows();
         this.initMouse();
         this.initKeys();
@@ -593,18 +605,25 @@ var Grid = /** @class */ (function () {
         var downRowIndex;
         var selectionIdentifier = null;
         var rememberSelection = function (r1, c1, r2, c2) { return '' + r1 + c1 + r2 + c2; };
-        var getTargetCell = function (e) {
-            var cell = e.target;
+        var findTargetCell = function (cell, level) {
+            if (level === void 0) { level = 0; }
             if (!cell || !cell.parentElement) {
                 return;
             }
             var cellIndexAttr = cell.getAttribute('data-ci');
+            if (cellIndexAttr === null && level < 2) {
+                return findTargetCell(cell.parentElement, level + 1);
+            }
             var rowIndexAttr = cell.parentElement.getAttribute('data-ri');
             var cellIndex = +cellIndexAttr;
             var rowIndex = +rowIndexAttr;
             if (cellIndexAttr && rowIndexAttr && !isNaN(cellIndex) && !isNaN(rowIndex)) {
                 return _this.rows[rowIndex].cells[cellIndex];
             }
+        };
+        var getTargetCell = function (e) {
+            var cell = e.target;
+            return findTargetCell(cell);
         };
         var mousemove = function (moveEvent) {
             var targetCell = getTargetCell(moveEvent);
@@ -897,6 +916,20 @@ var Grid = /** @class */ (function () {
 }());
 function css(className) {
     return '.' + className;
+}
+function trueOr(value) {
+    return value === false ? false : true;
+}
+function getScrollOptions(options) {
+    var scroll = options.scroll;
+    if (!scroll) {
+        return {};
+    }
+    return {
+        enabled: trueOr(scroll.enabled),
+        virtualScroll: trueOr(scroll.virtualScroll),
+        stickyHeader: trueOr(scroll.stickyHeader),
+    };
 }
 // ----
 
