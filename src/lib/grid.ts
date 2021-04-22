@@ -292,7 +292,7 @@ export class Grid {
             if (cell) {
                 const timeSinceLast = Date.now() - lastMouseDown;
                 lastMouseDown = Date.now();
-                if (cell.hasInput()) {
+                if (cell.takesMouse()) {
                     // The cell is already in edit mode. Do nothing and continue with default event handling
                     return;
                 }
@@ -401,7 +401,7 @@ export class Grid {
 
         const onInput = (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
-            if (activeCell && !activeCell.readonly && activeCell.hasInput()) {
+            if (activeCell && !activeCell.readonly && activeCell.takesKey()) {
                 this.updatValue(activeCell);
                 this.cells.forEach(cell => {
                     if (cell.selected() && cell !== activeCell) {
@@ -428,7 +428,7 @@ export class Grid {
 
         this.cleanups.push(on(hiddenInput, 'keypress', (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
-            if (activeCell && !activeCell.readonly && !activeCell.hasInput()) {
+            if (activeCell && !activeCell.readonly && !activeCell.takesKey()) {
                 activeCell.startEdit(cellInput, true);
                 this.emitFocus();
             }

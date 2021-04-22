@@ -50,9 +50,14 @@ export interface Cell {
     startEdit(input: HTMLInputElement, selectContent?: boolean);
 
     /**
-     * This cell has taken control of the input element
+     * This cell is ready to consume key events
      */
-    hasInput(): boolean;
+    takesKey(): boolean;
+
+    /**
+     * This cell is ready to consume mouse click events
+     */
+    takesMouse(): boolean;
 }
 
 /**
@@ -150,8 +155,12 @@ class InputCell implements Cell {
         input.focus();
     }
 
-    hasInput() {
+    takesKey(): boolean {
         return !!this.input;
+    }
+
+    takesMouse(): boolean {
+        return this.takesKey();
     }
 }
 
@@ -209,8 +218,12 @@ class SelectCell implements Cell {
 
     }
 
-    hasInput(): boolean {
+    takesKey(): boolean {
         return false;
+    }
+
+    takesMouse(): boolean {
+        return true;
     }
 }
 

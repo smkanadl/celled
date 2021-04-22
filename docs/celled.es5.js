@@ -386,16 +386,26 @@ var VirtualRenderer = /** @class */ (function () {
                 currentRange.end = endIndex;
                 grid.innerHTML = '';
                 grid.appendChild(head);
+                var headerHeight = grid.offsetHeight;
                 var renderedHeight = 0;
-                var count = 0;
-                for (var i = startIndex; (i <= endIndex || renderedHeight < desiredRenderHeight) && i < rows.length; ++i) {
+                // First add items from start to end index at once
+                var fragment = document.createDocumentFragment();
+                var i = startIndex;
+                for (; i <= endIndex && i < rows.length; ++i) {
+                    var row = rows[i];
+                    fragment.appendChild(row.element);
+                }
+                grid.appendChild(fragment);
+                renderedHeight = grid.offsetHeight - headerHeight;
+                // Add items until we reached the desired height
+                for (; renderedHeight < desiredRenderHeight && i < rows.length; ++i) {
                     var row = rows[i];
                     grid.appendChild(row.element);
                     renderedHeight += row.element.offsetHeight;
-                    ++count;
                 }
-                if (count) {
-                    rowHeight = renderedHeight / count;
+                var numberOfRenderedItems = i - startIndex;
+                if (numberOfRenderedItems) {
+                    rowHeight = renderedHeight / numberOfRenderedItems;
                 }
             }
         };
