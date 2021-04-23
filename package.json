@@ -1,6 +1,6 @@
 {
   "name": "celled",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "Simple javascript cell editor",
   "main": "dist/celled.js",
   "module": "dist/celled.es5.js",
@@ -24,7 +24,8 @@
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
-    "@testing-library/dom": "^6.3.0",
+    "@testing-library/dom": "^7.30.4",
+    "@testing-library/user-event": "^13.1.5",
     "@types/jest": "^24.0.18",
     "copyfiles": "^2.1.1",
     "jest": "^24.9.0",

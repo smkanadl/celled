@@ -254,8 +254,11 @@
             element.appendChild(input);
             input.focus();
         };
-        InputCell.prototype.hasInput = function () {
+        InputCell.prototype.takesKey = function () {
             return !!this.input;
+        };
+        InputCell.prototype.takesMouse = function () {
+            return this.takesKey();
         };
         return InputCell;
     }());
@@ -301,8 +304,11 @@
         };
         SelectCell.prototype.startEdit = function (input, selectContent) {
         };
-        SelectCell.prototype.hasInput = function () {
+        SelectCell.prototype.takesKey = function () {
             return false;
+        };
+        SelectCell.prototype.takesMouse = function () {
+            return true;
         };
         return SelectCell;
     }());
@@ -673,7 +679,7 @@
                 if (cell) {
                     var timeSinceLast = Date.now() - lastMouseDown;
                     lastMouseDown = Date.now();
-                    if (cell.hasInput()) {
+                    if (cell.takesMouse()) {
                         // The cell is already in edit mode. Do nothing and continue with default event handling
                         return;
                     }
@@ -779,7 +785,7 @@
             }));
             var onInput = function (e) {
                 var activeCell = _this.activeCell;
-                if (activeCell && !activeCell.readonly && activeCell.hasInput()) {
+                if (activeCell && !activeCell.readonly && activeCell.takesKey()) {
                     _this.updatValue(activeCell);
                     _this.cells.forEach(function (cell) {
                         if (cell.selected() && cell !== activeCell) {
@@ -804,7 +810,7 @@
             }));
             this.cleanups.push(on(hiddenInput, 'keypress', function (e) {
                 var activeCell = _this.activeCell;
-                if (activeCell && !activeCell.readonly && !activeCell.hasInput()) {
+                if (activeCell && !activeCell.readonly && !activeCell.takesKey()) {
                     activeCell.startEdit(cellInput, true);
                     _this.emitFocus();
                 }

@@ -1,7 +1,8 @@
 import { Grid, InputArgs, SelectArgs } from './grid';
-import { getByText, fireEvent } from '@testing-library/dom';
-import { clearLine } from 'readline';
+import { fireEvent } from '@testing-library/dom';
+import userEvent from '@testing-library/user-event';
 import { GridOptions } from './options';
+import { query } from './dom';
 
 function queryAll<T extends Element>(elementOrCss: ParentNode|string, cssOrEmpty?: string): T[] {
     let element: ParentNode = document;
@@ -29,7 +30,27 @@ function getGrid() {
             cells: queryAll(r, '.ced-cell').map(c => ({
                 element: c
             })),
-            values() { return this.cells.map(c => c.element.textContent.trim()); }
+            values() {
+                return this.cells.map(c => {
+                    const select = query<HTMLSelectElement>(c.element, 'select');
+                    if (select) {
+                        return select.value;
+                    }
+                    return c.element.textContent.trim();
+                });
+            },
+            options(cellIndex: number) {
+                const cell = this.cells[cellIndex];
+                const select = query<HTMLSelectElement>(cell.element, 'select');
+                if (select) {
+                    return [].slice.apply(select.options).map(opt => opt.innerHTML);
+                }
+            },
+            selectOption(cellIndex: number, option: any) {
+                const cell = this.cells[cellIndex];
+                const select = query<HTMLSelectElement>(cell.element, 'select');
+                userEvent.selectOptions(select, option);
+            }
         })),
     };
 }
@@ -89,7 +110,7 @@ describe('Grid', () => {
         expect(grid.rows[1].values()).toEqual(['3', '4']);
     });
 
-    it('should create rows width readonly cells', () => {
+    it('should create rows with readonly cells', () => {
         const grid = create({
             cols: ['a', 'b'],
             rows: [
@@ -101,6 +122,22 @@ describe('Grid', () => {
         expect(grid.rows.length).toBe(2);
         expect(grid.rows[0].values()).toEqual(['1', '2']);
         expect(grid.rows[1].values()).toEqual(['3', '4']);
+    });
+
+    it('should create rows with select cells', () => {
+        const grid = create({
+            cols: ['a', 'b'],
+            rows: [
+                [1, { value: '2', options: ['1', '2', '3'] }],
+                [{ value: 1, options: [1, 2, 4] }, '4']
+            ],
+        });
+        expect(grid.head.values).toEqual(['a', 'b']);
+        expect(grid.rows.length).toBe(2);
+        expect(grid.rows[0].values()).toEqual(['1', '2']);
+        expect(grid.rows[1].values()).toEqual(['1', '4']);
+        expect(grid.rows[0].options(1)).toEqual(['1', '2', '3']);
+        expect(grid.rows[1].options(0)).toEqual(['1', '2', '4']);
     });
 
     it('should select cell on click', () => {
@@ -384,6 +421,25 @@ describe('Grid', () => {
         expect(fired[1].row).toBe(1);
         expect(fired[1].col).toBe(1);
         expect(fired[1].value).toBe('');
+    });
+
+    fit('should fire input event on select option', () => {
+        const g = createGrid({
+            cols: ['a', 'b'],
+            rows: [
+                [1, { value: '2', options: ['1', '2', '3'] }],
+                [{ value: 1, options: [1, 2, 4] }, '4']
+            ],
+        });
+        const grid = getGrid();
+        const fired: InputArgs[] = [];
+        g.on('input', args => fired.push(args));
+        grid.rows[0].selectOption(1, '3');
+        expect(fired.length).toBe(1);
+        expect(fired[0].grid).toBe(g);
+        expect(fired[0].row).toBe(0);
+        expect(fired[0].col).toBe(1);
+        expect(fired[0].value).toBe('3');
     });
 
     it('should navigate with arrow keys', () => {
