@@ -423,7 +423,7 @@ describe('Grid', () => {
         expect(fired[1].value).toBe('');
     });
 
-    fit('should fire input event on select option', () => {
+    it('should fire input event on select option', () => {
         const g = createGrid({
             cols: ['a', 'b'],
             rows: [
@@ -608,16 +608,16 @@ describe('Grid', () => {
         ]);
     });
 
-    it('should not add rows if canAddRows is false', () => {
+    it('should allow addRows if canAddRows is false', () => {
         const g = createGrid({
             cols: ['a', 'b'],
             rows: [ [1, 2], [3, 4] ],
         });
-        g.addRows([[5, 6], [7, 8]]);
+        g.addRows([[5, 6]]);
         const grid = getGrid();
         expect(grid.head.values).toEqual(['a', 'b']);
         expect(grid.rows.map(r => r.values())).toEqual([
-            ['1', '2'], ['3', '4']
+            ['1', '2'], ['3', '4'], ['5', '6']
         ]);
     });
 

@@ -278,6 +278,7 @@
             this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\"></div>");
             this.selectElement = createElement("<select><select>");
             setOptions(this.selectElement, this.options);
+            this.set('' + value.value);
             this.element.appendChild(this.selectElement);
             this.listener = function () { return callback(_this); };
             this.selectElement.addEventListener('change', this.listener);

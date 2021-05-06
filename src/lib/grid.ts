@@ -115,15 +115,13 @@ export class Grid {
     }
 
     addRows(rows: RowOptions[]) {
-        if (this.options.canAddRows) {
-            [].push.apply(this.options.rows, rows);
-            rows.forEach(r => {
-                const newRow = this.createAndAddRow(r);
-                newRow.cells.forEach(c => this.emitInput(c));
-            });
-            this.flattenCells();
-            this.renderRows();
-        }
+        [].push.apply(this.options.rows, rows);
+        rows.forEach(r => {
+            const newRow = this.createAndAddRow(r);
+            newRow.cells.forEach(c => this.emitInput(c));
+        });
+        this.flattenCells();
+        this.renderRows();
     }
 
     addRow() {
