@@ -81,9 +81,7 @@ export class Grid {
         this.initMouse();
         this.initKeys();
         this.initClipboard();
-        queryAll(head, css(CSS_CELL)).forEach((c: HTMLElement) => {
-            c.style.width = c.offsetWidth + 'px';
-        });
+        this.resetColumnWidths();
     }
 
     destroy() {
@@ -128,6 +126,13 @@ export class Grid {
         this.addRows([this.options.cols.map(c => '')]);
     }
 
+    private resetColumnWidths() {
+        const allCells = queryAll(this.container, `${css(CSS_HEAD)} ${css(CSS_CELL)}`);
+        allCells.forEach((c: HTMLElement, i) => {
+            c.style.width = c.offsetWidth + 'px';
+        });
+    }
+
     private createHeadCell(text: string | number, columnIndex: number) {
         const column = createElement(`<div class="${CSS_CELL}" data-ci="${columnIndex}"><span>${text}</span></div>`);
         const resizer = createElement(`<div class="${CSS_RESIZER}"></div>`);
@@ -159,6 +164,7 @@ export class Grid {
                 }
             }
             else {
+                // column resizing
                 const diff = e.pageX - downPosition;
                 if (nextColumn) {
                     nextColumn.style.width = (currentNextWidth - diff) + 'px';
@@ -172,6 +178,7 @@ export class Grid {
             selection = null;
             off(document, 'mousemove', mousemove);
             off(document, 'mouseup', mouseup);
+            this.resetColumnWidths();
         };
 
         on(column, 'mousedown', (e: MouseEvent) => {
