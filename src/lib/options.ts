@@ -7,6 +7,9 @@ export interface CellValueOptions {
     css?: string;
 }
 
+export interface CellUpdateOptions extends Partial<Pick<CellValueOptions, 'readonly'|'css'|'value'>> {
+}
+
 export type RowOptions = Array<CellValue | CellValueOptions>;
 
 export interface ScrollOptions {

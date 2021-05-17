@@ -1,6 +1,6 @@
 import { CSS_CELL, CSS_READONLY, CSS_SELECTED, CSS_ACTIVE, CSS_EDITING, CSS_SELECT_CELL } from './css';
 import { createElement, remove, setOptions } from './dom';
-import { CellValue, CellValueOptions } from './options';
+import { CellUpdateOptions, CellValue, CellValueOptions } from './options';
 
 export type UpdateCallback = (cell: Cell) => unknown;
 
@@ -23,7 +23,7 @@ export interface Cell {
     /**
      * Show a new value.
      */
-    set(value: string): void;
+    set(value: CellValue | CellUpdateOptions): void;
 
     /**
      * Mark the cell as selected. This will apply css classes
@@ -82,7 +82,7 @@ class InputCell implements Cell {
     constructor(public row: number, public col: number, value: CellValue | CellValueOptions) {
         let text: string;
         let css: string;
-        if (typeof value === 'string' || typeof value === 'number') {
+        if (isPlainValue(value)) {
             text = value.toString();
         }
         else {
@@ -130,15 +130,32 @@ class InputCell implements Cell {
         return this.input ? this.input.value : this.element.textContent;
     }
 
-    set(value: string) {
-        if (!this.readonly) {
-            if (this.input) {
-                this.input.value = value;
-            }
-            else {
-                this.element.innerHTML = valueHTML(value);
-            }
+    set(value: CellValue | CellUpdateOptions) {
+        if (isPlainValue(value)) {
+            this.setValue(value);
         }
+        else {
+            // Update properties only if it's set in value
+            if (isDefined(value.value)) {
+                this.setValue(value.value);
+            }
+            this.readonly = isDefined(value.readonly) ? value.readonly : this.readonly;
+            this.setCss(value.css);
+        }
+    }
+
+    private setValue(value: CellValue) {
+        if (this.input) {
+            this.input.value = value.toString();
+        }
+        else {
+            this.element.innerHTML = valueHTML(value);
+        }
+    }
+
+    private setCss(extraCss: string) {
+        const className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + (extraCss || '');
+        this.element.className = className;
     }
 
     startEdit(input: HTMLInputElement, select = false) {
@@ -178,20 +195,19 @@ class SelectCell implements Cell {
     options: ReadonlyArray<CellValue> = null;
     listener;
 
+
     constructor(public row: number, public col: number, value: CellValueOptions, callback: UpdateCallback) {
 
         this.readonly = value.readonly;
         this.options = value.options;
-        let css = value.css || '';
-
-        const className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + css;
-        this.element = createElement(`<div data-ci="${col}" class="${className}"></div>`);
+        this.element = createElement(`<div data-ci="${col}"></div>`);
         this.selectElement = createElement<HTMLSelectElement>(`<select><select>`);
         setOptions(this.selectElement, this.options);
         this.set('' + value.value);
         this.element.appendChild(this.selectElement);
         this.listener = () => callback(this);
         this.selectElement.addEventListener('change', this.listener);
+        this.setCss(value.css);
     }
 
     destroy() {
@@ -202,8 +218,26 @@ class SelectCell implements Cell {
         return this.selectElement.value;
     }
 
-    set(value: string) {
-        this.selectElement.value = value;
+    set(value: CellValue | CellUpdateOptions) {
+        if (isPlainValue(value)) {
+            this.setValue(value);
+        }
+        else {
+            // Update properties only if it's set in value
+            if (isDefined(value.value)) {
+                this.setValue(value.value);
+            }
+            this.setCss(value.css);
+        }
+    }
+
+    private setValue(value: CellValue) {
+        this.selectElement.value = value ? value.toString() : null;
+    }
+
+    private setCss(extraCss: string) {
+        const className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + (extraCss || '');
+        this.element.className = className;
     }
 
     select(doSelect = true) {
@@ -244,4 +278,12 @@ function setSelectCSS(element: HTMLElement, doSelect: boolean) {
 
 function isSelectCss(element: HTMLElement) {
     return element.className.indexOf(CSS_SELECTED) >= 0;
+}
+
+function isPlainValue(value: CellValue | CellUpdateOptions): value is CellValue {
+    return typeof value === 'string' || typeof value === 'number';
+}
+
+function isDefined(value: any) {
+    return typeof value !== 'undefined';
 }

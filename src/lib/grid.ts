@@ -1,7 +1,7 @@
 import { EventEmitter, EventHandler, EventHandlerBase } from './events';
 import { parseCSV, writeCSV } from './csv';
 import { query, remove, createElement, queryAll, off, on } from './dom';
-import { CellValue, CellValueOptions, GridOptions, RowOptions, ScrollOptions } from './options';
+import { CellUpdateOptions, CellValue, CellValueOptions, GridOptions, RowOptions, ScrollOptions } from './options';
 import { Cell } from './cell';
 import { CSS_CELL, CSS_CONTAINER, CSS_CONTAINER_SCROLL, CSS_GRID, CSS_HEAD, CSS_HEAD_STICKY, CSS_RESIZER, CSS_ROW } from './css';
 import { Row } from './row';
@@ -108,11 +108,12 @@ export class Grid {
         this.events.addHandler(event, handler);
     }
 
-    update(rowIndex: number, colIndex: number, value: CellValue | CellValueOptions, emit?: boolean) {
+    update(rowIndex: number, colIndex: number, value: CellValue | CellUpdateOptions, emit?: boolean) {
         const row = this.rows[rowIndex];
-        const cell = row.setCell(colIndex, value, this.updateValueCallback());
-        if (emit) {
-            this.updatValue(cell);
+        const cell = row.cells[colIndex];
+        if (cell) {
+            cell.set(value);
+            this.updatValue(cell, emit);
         }
     }
 
@@ -415,7 +416,7 @@ export class Grid {
         const onInput = (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
             if (activeCell && !activeCell.readonly && activeCell.takesKey()) {
-                this.updatValue(activeCell);
+                this.updatValue(activeCell, true);
                 this.cells.forEach(cell => {
                     if (cell.selected() && cell !== activeCell) {
                         this.setCell(cell, activeCell.value());
@@ -520,7 +521,7 @@ export class Grid {
     private setCell(cell: Cell, value: string) {
         if (!cell.readonly) {
             cell.set(value);
-            this.updatValue(cell);
+            this.updatValue(cell, true);
         }
     }
 
@@ -533,7 +534,7 @@ export class Grid {
         return selectionChanged;
     }
 
-    private updatValue(cell: Cell) {
+    private updatValue(cell: Cell, emit: boolean) {
         const colIndex = cell.col;
         const rowOption = this.options.rows[cell.row];
         const cellValue = rowOption[colIndex];
@@ -543,7 +544,9 @@ export class Grid {
         else {
             cellValue.value = cell.value();
         }
-        this.emitInput(cell);
+        if (emit) {
+            this.emitInput(cell);
+        }
     }
 
     private emitInput(cell: Cell) {
