@@ -108,10 +108,12 @@ export class Grid {
         this.events.addHandler(event, handler);
     }
 
-    update(rowIndex: number, colIndex: number, value: CellValue | CellValueOptions) {
+    update(rowIndex: number, colIndex: number, value: CellValue | CellValueOptions, emit?: boolean) {
         const row = this.rows[rowIndex];
         const cell = row.setCell(colIndex, value, this.updateValueCallback());
-        this.updatValue(cell);
+        if (emit) {
+            this.updatValue(cell);
+        }
     }
 
     addRows(rows: RowOptions[]) {

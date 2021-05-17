@@ -179,14 +179,16 @@ var InputCell = /** @class */ (function () {
         this.col = col;
         this.readonly = false;
         var text;
+        var css;
         if (typeof value === 'string' || typeof value === 'number') {
             text = value.toString();
         }
         else {
             this.readonly = value.readonly;
             text = value.value.toString();
+            css = value.css || '';
         }
-        var className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
+        var className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + css;
         this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\">" + valueHTML(text) + "</div>");
     }
     InputCell.prototype.destroy = function () {
@@ -268,7 +270,8 @@ var SelectCell = /** @class */ (function () {
         this.options = null;
         this.readonly = value.readonly;
         this.options = value.options;
-        var className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
+        var css = value.css || '';
+        var className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + css;
         this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\"></div>");
         this.selectElement = createElement("<select><select>");
         setOptions(this.selectElement, this.options);
@@ -333,6 +336,14 @@ var Row = /** @class */ (function () {
             _this.cells.push(cell);
             _this.element.appendChild(cell.element);
         });
+    };
+    Row.prototype.setCell = function (columnIndex, value, updateValueCallback) {
+        var oldCell = this.cells[columnIndex];
+        var cell = createCell(this.index, columnIndex, value, updateValueCallback);
+        this.cells[columnIndex] = cell;
+        oldCell.element.replaceWith(cell.element);
+        oldCell.destroy();
+        return cell;
     };
     return Row;
 }());
@@ -499,8 +510,12 @@ var Grid = /** @class */ (function () {
     Grid.prototype.on = function (event, handler) {
         this.events.addHandler(event, handler);
     };
-    Grid.prototype.update = function (row, col, value) {
-        this.setCell(this.rows[row].cells[col], value);
+    Grid.prototype.update = function (rowIndex, colIndex, value, emit) {
+        var row = this.rows[rowIndex];
+        var cell = row.setCell(colIndex, value, this.updateValueCallback());
+        if (emit) {
+            this.updatValue(cell);
+        }
     };
     Grid.prototype.addRows = function (rows) {
         var _this = this;
@@ -601,11 +616,14 @@ var Grid = /** @class */ (function () {
         this.hiddenInput.focus({ preventScroll: true });
     };
     Grid.prototype.createAndAddRow = function (r) {
-        var _this = this;
         var row = new Row(this.rows.length);
-        row.addCells(r, function (cell) { return _this.emitInput(cell); });
+        row.addCells(r, this.updateValueCallback());
         this.rows.push(row);
         return row;
+    };
+    Grid.prototype.updateValueCallback = function () {
+        var _this = this;
+        return function (cell) { return _this.emitInput(cell); };
     };
     Grid.prototype.createRows = function () {
         var _this = this;
