@@ -488,9 +488,7 @@
             this.initMouse();
             this.initKeys();
             this.initClipboard();
-            queryAll(head, css(CSS_CELL)).forEach(function (c) {
-                c.style.width = c.offsetWidth + 'px';
-            });
+            this.resetColumnWidths();
         };
         Grid.prototype.destroy = function () {
             this.render.destroy();
@@ -512,18 +510,22 @@
         };
         Grid.prototype.addRows = function (rows) {
             var _this = this;
-            if (this.options.canAddRows) {
-                [].push.apply(this.options.rows, rows);
-                rows.forEach(function (r) {
-                    var newRow = _this.createAndAddRow(r);
-                    newRow.cells.forEach(function (c) { return _this.emitInput(c); });
-                });
-                this.flattenCells();
-                this.renderRows();
-            }
+            [].push.apply(this.options.rows, rows);
+            rows.forEach(function (r) {
+                var newRow = _this.createAndAddRow(r);
+                newRow.cells.forEach(function (c) { return _this.emitInput(c); });
+            });
+            this.flattenCells();
+            this.renderRows();
         };
         Grid.prototype.addRow = function () {
             this.addRows([this.options.cols.map(function (c) { return ''; })]);
+        };
+        Grid.prototype.resetColumnWidths = function () {
+            var allCells = queryAll(this.container, css(CSS_HEAD) + " " + css(CSS_CELL));
+            allCells.forEach(function (c, i) {
+                c.style.width = c.offsetWidth + 'px';
+            });
         };
         Grid.prototype.createHeadCell = function (text, columnIndex) {
             var _this = this;
@@ -560,6 +562,7 @@
                     }
                 }
                 else {
+                    // column resizing
                     var diff = e.pageX - downPosition;
                     if (nextColumn) {
                         nextColumn.style.width = (currentNextWidth - diff) + 'px';
@@ -572,6 +575,7 @@
                 selection = null;
                 off(document, 'mousemove', mousemove);
                 off(document, 'mouseup', mouseup);
+                _this.resetColumnWidths();
             };
             on(column, 'mousedown', function (e) {
                 if (e.target === resizer) {

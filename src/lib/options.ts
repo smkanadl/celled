@@ -4,6 +4,7 @@ export interface CellValueOptions {
     readonly?: boolean;
     options?: ReadonlyArray<CellValue>;
     value: CellValue;
+    css?: string;
 }
 
 export type RowOptions = Array<CellValue | CellValueOptions>;

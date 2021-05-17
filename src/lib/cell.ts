@@ -5,7 +5,8 @@ import { CellValue, CellValueOptions } from './options';
 export type UpdateCallback = (cell: Cell) => unknown;
 
 export interface Cell {
-    readonly: boolean;
+    readonly element: HTMLElement;
+    readonly readonly: boolean;
     row: number;
     col: number;
 
@@ -80,14 +81,16 @@ class InputCell implements Cell {
 
     constructor(public row: number, public col: number, value: CellValue | CellValueOptions) {
         let text: string;
+        let css: string;
         if (typeof value === 'string' || typeof value === 'number') {
             text = value.toString();
         }
         else {
             this.readonly = value.readonly;
             text = value.value.toString();
+            css = value.css || '';
         }
-        const className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
+        const className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + css;
         this.element = createElement(`<div data-ci="${col}" class="${className}">${valueHTML(text)}</div>`);
     }
 
@@ -179,8 +182,9 @@ class SelectCell implements Cell {
 
         this.readonly = value.readonly;
         this.options = value.options;
+        let css = value.css || '';
 
-        const className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '');
+        const className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + css;
         this.element = createElement(`<div data-ci="${col}" class="${className}"></div>`);
         this.selectElement = createElement<HTMLSelectElement>(`<select><select>`);
         setOptions(this.selectElement, this.options);

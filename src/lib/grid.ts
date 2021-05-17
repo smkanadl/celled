@@ -1,7 +1,7 @@
 import { EventEmitter, EventHandler, EventHandlerBase } from './events';
 import { parseCSV, writeCSV } from './csv';
 import { query, remove, createElement, queryAll, off, on } from './dom';
-import { GridOptions, RowOptions, ScrollOptions } from './options';
+import { CellValue, CellValueOptions, GridOptions, RowOptions, ScrollOptions } from './options';
 import { Cell } from './cell';
 import { CSS_CELL, CSS_CONTAINER, CSS_CONTAINER_SCROLL, CSS_GRID, CSS_HEAD, CSS_HEAD_STICKY, CSS_RESIZER, CSS_ROW } from './css';
 import { Row } from './row';
@@ -108,8 +108,10 @@ export class Grid {
         this.events.addHandler(event, handler);
     }
 
-    update(row: number, col: number, value: string) {
-        this.setCell(this.rows[row].cells[col], value);
+    update(rowIndex: number, colIndex: number, value: CellValue | CellValueOptions) {
+        const row = this.rows[rowIndex];
+        const cell = row.setCell(colIndex, value, this.updateValueCallback());
+        this.updatValue(cell);
     }
 
     addRows(rows: RowOptions[]) {
@@ -215,9 +217,13 @@ export class Grid {
 
     private createAndAddRow(r: RowOptions): Row {
         const row = new Row(this.rows.length);
-        row.addCells(r, cell => this.emitInput(cell));
+        row.addCells(r, this.updateValueCallback());
         this.rows.push(row);
         return row;
+    }
+
+    private updateValueCallback() {
+        return cell => this.emitInput(cell);
     }
 
     private createRows() {

@@ -18,4 +18,13 @@ export class Row {
             this.element.appendChild(cell.element);
         });
     }
+
+    setCell(columnIndex: number, value: CellValue | CellValueOptions, updateValueCallback: (cell: Cell) => unknown): Cell {
+        const oldCell = this.cells[columnIndex];
+        const cell = createCell(this.index, columnIndex, value, updateValueCallback);
+        this.cells[columnIndex] = cell;
+        oldCell.element.replaceWith(cell.element);
+        oldCell.destroy();
+        return cell;
+    }
 }
