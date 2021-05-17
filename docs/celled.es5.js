@@ -178,39 +178,39 @@ var InputCell = /** @class */ (function () {
         this.row = row;
         this.col = col;
         this.readonly = false;
+        this.isActive = false;
+        this.isSelected = false;
+        this.extraCss = '';
         var text;
-        var css;
-        if (typeof value === 'string' || typeof value === 'number') {
+        if (isPlainValue(value)) {
             text = value.toString();
         }
         else {
             this.readonly = value.readonly;
             text = value.value.toString();
-            css = value.css || '';
+            this.extraCss = value.css;
         }
-        var className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + css;
-        this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\">" + valueHTML(text) + "</div>");
+        this.element = createElement("<div data-ci=\"" + col + "\">" + valueHTML(text) + "</div>");
+        this.setCss();
     }
     InputCell.prototype.destroy = function () {
     };
     InputCell.prototype.selected = function () {
-        return isSelectCss(this.element);
+        return this.isSelected;
     };
     InputCell.prototype.select = function (doSelect) {
         if (doSelect === void 0) { doSelect = true; }
-        setSelectCSS(this.element, doSelect);
+        this.isSelected = doSelect;
+        this.setCss();
         return this;
     };
     InputCell.prototype.activate = function (doActivate) {
         if (doActivate === void 0) { doActivate = true; }
-        var classList = this.element.classList;
         if (doActivate) {
-            classList.add(CSS_ACTIVE);
-            classList.add(CSS_SELECTED);
+            this.isActive = this.isSelected = true;
         }
         else {
-            classList.remove(CSS_ACTIVE);
-            classList.remove(CSS_EDITING);
+            this.isActive = false;
             if (this.input) {
                 this.input.blur();
                 remove(this.input);
@@ -218,20 +218,42 @@ var InputCell = /** @class */ (function () {
                 this.input = null;
             }
         }
+        this.setCss();
         return this;
     };
     InputCell.prototype.value = function () {
         return this.input ? this.input.value : this.element.textContent;
     };
     InputCell.prototype.set = function (value) {
-        if (!this.readonly) {
-            if (this.input) {
-                this.input.value = value;
-            }
-            else {
-                this.element.innerHTML = valueHTML(value);
-            }
+        if (isPlainValue(value)) {
+            this.setValue(value);
         }
+        else {
+            // Update properties only if it's set in value
+            if (isDefined(value.value)) {
+                this.setValue(value.value);
+            }
+            this.readonly = isDefined(value.readonly) ? value.readonly : this.readonly;
+            this.extraCss = value.css;
+            this.setCss();
+        }
+    };
+    InputCell.prototype.setValue = function (value) {
+        if (this.input) {
+            this.input.value = value.toString();
+        }
+        else {
+            this.element.innerHTML = valueHTML(value);
+        }
+    };
+    InputCell.prototype.setCss = function () {
+        var className = CSS_CELL +
+            cssIf(this.readonly, CSS_READONLY) +
+            cssIf(this.isActive, CSS_ACTIVE) +
+            cssIf(this.isSelected, CSS_SELECTED) +
+            cssIf(!!this.input, CSS_EDITING) +
+            cssIf(!!this.extraCss, this.extraCss);
+        this.element.className = className;
     };
     InputCell.prototype.startEdit = function (input, select) {
         if (select === void 0) { select = false; }
@@ -245,10 +267,10 @@ var InputCell = /** @class */ (function () {
             input.select();
         }
         input.style.width = element.offsetWidth - 2 + 'px';
-        element.classList.add(CSS_EDITING);
         element.innerHTML = '';
         element.appendChild(input);
         input.focus();
+        this.setCss();
     };
     InputCell.prototype.takesKey = function () {
         return !!this.input;
@@ -268,17 +290,19 @@ var SelectCell = /** @class */ (function () {
         this.col = col;
         this.readonly = false;
         this.options = null;
+        this.isSelected = false;
+        this.extraCss = '';
         this.readonly = value.readonly;
         this.options = value.options;
-        var css = value.css || '';
-        var className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + css;
-        this.element = createElement("<div data-ci=\"" + col + "\" class=\"" + className + "\"></div>");
+        this.element = createElement("<div data-ci=\"" + col + "\"></div>");
         this.selectElement = createElement("<select><select>");
         setOptions(this.selectElement, this.options);
         this.set('' + value.value);
         this.element.appendChild(this.selectElement);
         this.listener = function () { return callback(_this); };
         this.selectElement.addEventListener('change', this.listener);
+        this.extraCss = value.css;
+        this.setCss();
     }
     SelectCell.prototype.destroy = function () {
         this.selectElement.removeEventListener('change', this.listener);
@@ -287,15 +311,36 @@ var SelectCell = /** @class */ (function () {
         return this.selectElement.value;
     };
     SelectCell.prototype.set = function (value) {
-        this.selectElement.value = value;
+        if (isPlainValue(value)) {
+            this.setValue(value);
+        }
+        else {
+            // Update properties only if it's set in value
+            if (isDefined(value.value)) {
+                this.setValue(value.value);
+            }
+            this.extraCss = value.css;
+            this.setCss();
+        }
+    };
+    SelectCell.prototype.setValue = function (value) {
+        this.selectElement.value = value ? value.toString() : null;
+    };
+    SelectCell.prototype.setCss = function () {
+        var className = CSS_CELL + ' ' + CSS_SELECT_CELL +
+            cssIf(this.readonly, CSS_READONLY) +
+            cssIf(this.isSelected, CSS_SELECTED) +
+            cssIf(!!this.extraCss, this.extraCss);
+        this.element.className = className;
     };
     SelectCell.prototype.select = function (doSelect) {
         if (doSelect === void 0) { doSelect = true; }
-        setSelectCSS(this.element, doSelect);
+        this.isSelected = doSelect;
+        this.setCss();
         return this;
     };
     SelectCell.prototype.selected = function () {
-        return isSelectCss(this.element);
+        return this.isSelected;
     };
     SelectCell.prototype.activate = function (doActivate) {
         return this;
@@ -310,17 +355,14 @@ var SelectCell = /** @class */ (function () {
     };
     return SelectCell;
 }());
-function setSelectCSS(element, doSelect) {
-    var classList = element.classList;
-    if (doSelect) {
-        classList.add(CSS_SELECTED);
-    }
-    else {
-        classList.remove(CSS_SELECTED);
-    }
+function isPlainValue(value) {
+    return typeof value === 'string' || typeof value === 'number';
 }
-function isSelectCss(element) {
-    return element.className.indexOf(CSS_SELECTED) >= 0;
+function isDefined(value) {
+    return typeof value !== 'undefined';
+}
+function cssIf(useValue, css) {
+    return useValue ? ' ' + css : '';
 }
 
 var Row = /** @class */ (function () {
@@ -336,14 +378,6 @@ var Row = /** @class */ (function () {
             _this.cells.push(cell);
             _this.element.appendChild(cell.element);
         });
-    };
-    Row.prototype.setCell = function (columnIndex, value, updateValueCallback) {
-        var oldCell = this.cells[columnIndex];
-        var cell = createCell(this.index, columnIndex, value, updateValueCallback);
-        this.cells[columnIndex] = cell;
-        oldCell.element.replaceWith(cell.element);
-        oldCell.destroy();
-        return cell;
     };
     return Row;
 }());
@@ -512,9 +546,10 @@ var Grid = /** @class */ (function () {
     };
     Grid.prototype.update = function (rowIndex, colIndex, value, emit) {
         var row = this.rows[rowIndex];
-        var cell = row.setCell(colIndex, value, this.updateValueCallback());
-        if (emit) {
-            this.updatValue(cell);
+        var cell = row.cells[colIndex];
+        if (cell) {
+            cell.set(value);
+            this.updatValue(cell, emit);
         }
     };
     Grid.prototype.addRows = function (rows) {
@@ -803,7 +838,7 @@ var Grid = /** @class */ (function () {
         var onInput = function (e) {
             var activeCell = _this.activeCell;
             if (activeCell && !activeCell.readonly && activeCell.takesKey()) {
-                _this.updatValue(activeCell);
+                _this.updatValue(activeCell, true);
                 _this.cells.forEach(function (cell) {
                     if (cell.selected() && cell !== activeCell) {
                         _this.setCell(cell, activeCell.value());
@@ -902,7 +937,7 @@ var Grid = /** @class */ (function () {
     Grid.prototype.setCell = function (cell, value) {
         if (!cell.readonly) {
             cell.set(value);
-            this.updatValue(cell);
+            this.updatValue(cell, true);
         }
     };
     Grid.prototype.unselect = function () {
@@ -913,7 +948,7 @@ var Grid = /** @class */ (function () {
         });
         return selectionChanged;
     };
-    Grid.prototype.updatValue = function (cell) {
+    Grid.prototype.updatValue = function (cell, emit) {
         var colIndex = cell.col;
         var rowOption = this.options.rows[cell.row];
         var cellValue = rowOption[colIndex];
@@ -923,7 +958,9 @@ var Grid = /** @class */ (function () {
         else {
             cellValue.value = cell.value();
         }
-        this.emitInput(cell);
+        if (emit) {
+            this.emitInput(cell);
+        }
     };
     Grid.prototype.emitInput = function (cell) {
         this.events.emit('input', {

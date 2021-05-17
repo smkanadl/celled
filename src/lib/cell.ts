@@ -79,43 +79,43 @@ class InputCell implements Cell {
     input: HTMLInputElement;  // If the cell is active, this is the assigned input element
     readonly = false;
 
+    private isActive = false;
+    private isSelected = false;
+    private extraCss = '';
+
     constructor(public row: number, public col: number, value: CellValue | CellValueOptions) {
         let text: string;
-        let css: string;
         if (isPlainValue(value)) {
             text = value.toString();
         }
         else {
             this.readonly = value.readonly;
             text = value.value.toString();
-            css = value.css || '';
+            this.extraCss = value.css;
         }
-        const className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + css;
-        this.element = createElement(`<div data-ci="${col}" class="${className}">${valueHTML(text)}</div>`);
+        this.element = createElement(`<div data-ci="${col}">${valueHTML(text)}</div>`);
+        this.setCss();
     }
 
     destroy() {
-
     }
 
     selected() {
-        return isSelectCss(this.element);
+        return this.isSelected;
     }
 
     select(doSelect = true) {
-        setSelectCSS(this.element, doSelect);
+        this.isSelected = doSelect;
+        this.setCss();
         return this;
     }
 
     activate(doActivate = true) {
-        const classList = this.element.classList;
         if (doActivate) {
-            classList.add(CSS_ACTIVE);
-            classList.add(CSS_SELECTED);
+            this.isActive = this.isSelected = true;
         }
         else {
-            classList.remove(CSS_ACTIVE);
-            classList.remove(CSS_EDITING);
+            this.isActive = false;
             if (this.input) {
                 this.input.blur();
                 remove(this.input);
@@ -123,6 +123,7 @@ class InputCell implements Cell {
                 this.input = null;
             }
         }
+        this.setCss();
         return this;
     }
 
@@ -140,7 +141,8 @@ class InputCell implements Cell {
                 this.setValue(value.value);
             }
             this.readonly = isDefined(value.readonly) ? value.readonly : this.readonly;
-            this.setCss(value.css);
+            this.extraCss = value.css;
+            this.setCss();
         }
     }
 
@@ -153,8 +155,13 @@ class InputCell implements Cell {
         }
     }
 
-    private setCss(extraCss: string) {
-        const className = CSS_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + (extraCss || '');
+    private setCss() {
+        const className = CSS_CELL +
+            cssIf(this.readonly, CSS_READONLY) +
+            cssIf(this.isActive, CSS_ACTIVE) +
+            cssIf(this.isSelected, CSS_SELECTED) +
+            cssIf(!!this.input, CSS_EDITING) +
+            cssIf(!!this.extraCss, this.extraCss);
         this.element.className = className;
     }
 
@@ -169,10 +176,10 @@ class InputCell implements Cell {
             input.select();
         }
         input.style.width = element.offsetWidth - 2 + 'px';
-        element.classList.add(CSS_EDITING);
         element.innerHTML = '';
         element.appendChild(input);
         input.focus();
+        this.setCss();
     }
 
     takesKey(): boolean {
@@ -195,6 +202,8 @@ class SelectCell implements Cell {
     options: ReadonlyArray<CellValue> = null;
     listener;
 
+    private isSelected = false;
+    private extraCss = '';
 
     constructor(public row: number, public col: number, value: CellValueOptions, callback: UpdateCallback) {
 
@@ -207,7 +216,8 @@ class SelectCell implements Cell {
         this.element.appendChild(this.selectElement);
         this.listener = () => callback(this);
         this.selectElement.addEventListener('change', this.listener);
-        this.setCss(value.css);
+        this.extraCss = value.css;
+        this.setCss();
     }
 
     destroy() {
@@ -227,7 +237,8 @@ class SelectCell implements Cell {
             if (isDefined(value.value)) {
                 this.setValue(value.value);
             }
-            this.setCss(value.css);
+            this.extraCss = value.css;
+            this.setCss();
         }
     }
 
@@ -235,18 +246,22 @@ class SelectCell implements Cell {
         this.selectElement.value = value ? value.toString() : null;
     }
 
-    private setCss(extraCss: string) {
-        const className = CSS_CELL + ' ' + CSS_SELECT_CELL + (this.readonly ? ' ' + CSS_READONLY : '') + ' ' + (extraCss || '');
+    private setCss() {
+        const className = CSS_CELL + ' ' + CSS_SELECT_CELL +
+            cssIf(this.readonly, CSS_READONLY) +
+            cssIf(this.isSelected, CSS_SELECTED) +
+            cssIf(!!this.extraCss, this.extraCss);
         this.element.className = className;
     }
 
     select(doSelect = true) {
-        setSelectCSS(this.element, doSelect);
+        this.isSelected = doSelect;
+        this.setCss();
         return this;
     }
 
     selected(): boolean {
-        return isSelectCss(this.element);
+        return this.isSelected;
     }
 
     activate(doActivate?: boolean) {
@@ -254,7 +269,6 @@ class SelectCell implements Cell {
     }
 
     startEdit(input: HTMLInputElement, selectContent?: boolean) {
-
     }
 
     takesKey(): boolean {
@@ -266,15 +280,15 @@ class SelectCell implements Cell {
     }
 }
 
-function setSelectCSS(element: HTMLElement, doSelect: boolean) {
-    const classList = element.classList;
-    if (doSelect) {
-        classList.add(CSS_SELECTED);
-    }
-    else {
-        classList.remove(CSS_SELECTED);
-    }
-}
+// function setSelectCSS(element: HTMLElement, doSelect: boolean) {
+//     const classList = element.classList;
+//     if (doSelect) {
+//         classList.add(CSS_SELECTED);
+//     }
+//     else {
+//         classList.remove(CSS_SELECTED);
+//     }
+// }
 
 function isSelectCss(element: HTMLElement) {
     return element.className.indexOf(CSS_SELECTED) >= 0;
@@ -286,4 +300,9 @@ function isPlainValue(value: CellValue | CellUpdateOptions): value is CellValue 
 
 function isDefined(value: any) {
     return typeof value !== 'undefined';
+}
+
+
+function cssIf(useValue: boolean, css: string) {
+    return useValue ? ' ' + css : '';
 }
