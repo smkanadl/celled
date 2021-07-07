@@ -72,7 +72,7 @@ export class VirtualRenderer implements Renderer {
             let visibleNodesCount = Math.ceil(viewportHeight / rowHeight) + 2 * itemPadding;
             visibleNodesCount = Math.min(itemCount - startIndex, visibleNodesCount);
             const endIndex = startIndex + visibleNodesCount - 1;  // last rendered item (including)
-            const maxOffsetY = totalContentHeight - viewportHeight - itemPadding * rowHeight;  // do not go beyond this
+            const maxOffsetY = Math.max(0, totalContentHeight - viewportHeight - itemPadding * rowHeight);  // do not go beyond this
             const offsetY = Math.min(maxOffsetY, startIndex * rowHeight);
 
             // At the end of the list we will not rerender in order to avoid jumping scrollbar.
