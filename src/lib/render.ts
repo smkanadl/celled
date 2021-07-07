@@ -49,7 +49,7 @@ export class VirtualRenderer implements Renderer {
 
         const currentRange = {
             start: undefined,
-            end: undefined,
+            end: undefined,  // last rendered item (including)
         };
 
         let rowHeight = 34;  // just a guess
@@ -69,14 +69,23 @@ export class VirtualRenderer implements Renderer {
 
             let visibleNodesCount = Math.ceil(viewportHeight / rowHeight) + 2 * itemPadding;
             visibleNodesCount = Math.min(itemCount - startIndex, visibleNodesCount);
-            const endIndex = startIndex + visibleNodesCount;
-            const offsetY = startIndex * rowHeight;
+            const endIndex = startIndex + visibleNodesCount - 1;  // last rendered item (including)
+            const maxOffsetY = totalContentHeight - viewportHeight - itemPadding * rowHeight;  // do not go beyond this
+            const offsetY = Math.min(maxOffsetY, startIndex * rowHeight);
 
             gridContainer.style.height = `${totalContentHeight}px`;
             grid.style['top'] = `${offsetY}px`;
 
+            // At the end of the list we will not rerender in order to avoid jumping scrollbar.
+            const lastItemIndex = itemCount - 1;
+            const lastWasAdded = currentRange.end === lastItemIndex;
+            const lastWillBeAdded = endIndex === lastItemIndex;
+            const noMoreItemsAvailable = lastWasAdded && lastWillBeAdded;
+            const newRangeDiffers = currentRange.start !== startIndex || currentRange.end !== endIndex;
+            const shouldRerender = newRangeDiffers && !noMoreItemsAvailable;
+
             // Render
-            if (currentRange.start !== startIndex || currentRange.end !== endIndex) {
+            if (shouldRerender) {
                 const desiredRenderHeight = visibleNodesCount * rowHeight; // viewport + padding
                 currentRange.start = startIndex;
                 currentRange.end = endIndex;

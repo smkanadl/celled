@@ -1,6 +1,6 @@
 {
   "name": "celled",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "Simple javascript cell editor",
   "main": "dist/celled.js",
   "module": "dist/celled.es5.js",
