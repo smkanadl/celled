@@ -409,7 +409,9 @@ var VirtualRenderer = /** @class */ (function () {
             container.removeEventListener('scroll', this.onScroll);
         }
         var itemPadding = 4;
-        var currentRange = {
+        var current = {
+            viewportHeight: undefined,
+            itemCount: undefined,
             start: undefined,
             end: undefined,
         };
@@ -427,15 +429,25 @@ var VirtualRenderer = /** @class */ (function () {
             startIndex = Math.max(0, startIndex);
             var visibleNodesCount = Math.ceil(viewportHeight / rowHeight) + 2 * itemPadding;
             visibleNodesCount = Math.min(itemCount - startIndex, visibleNodesCount);
-            var endIndex = startIndex + visibleNodesCount;
-            var offsetY = startIndex * rowHeight;
-            gridContainer.style.height = totalContentHeight + "px";
-            grid.style['top'] = offsetY + "px";
+            var endIndex = startIndex + visibleNodesCount - 1; // last rendered item (including)
+            var maxOffsetY = totalContentHeight - viewportHeight - itemPadding * rowHeight; // do not go beyond this
+            var offsetY = Math.min(maxOffsetY, startIndex * rowHeight);
+            // At the end of the list we will not rerender in order to avoid jumping scrollbar.
+            var lastItemIndex = itemCount - 1;
+            var lastWasAdded = current.end === lastItemIndex;
+            var lastWillBeAdded = endIndex === lastItemIndex;
+            var noMoreItemsAvailable = lastWasAdded && lastWillBeAdded;
+            var newRangeDiffers = current.start !== startIndex || current.end !== endIndex;
+            var heightChanged = viewportHeight !== current.viewportHeight;
+            var itemCountChanged = itemCount !== current.itemCount;
+            var shouldRerender = itemCountChanged || heightChanged || (newRangeDiffers && !noMoreItemsAvailable);
             // Render
-            if (currentRange.start !== startIndex || currentRange.end !== endIndex) {
+            if (shouldRerender) {
                 var desiredRenderHeight = visibleNodesCount * rowHeight; // viewport + padding
-                currentRange.start = startIndex;
-                currentRange.end = endIndex;
+                current.start = startIndex;
+                current.end = endIndex;
+                current.viewportHeight = viewportHeight;
+                current.itemCount = itemCount;
                 grid.innerHTML = '';
                 grid.appendChild(head);
                 var headerHeight = grid.offsetHeight;
@@ -459,6 +471,8 @@ var VirtualRenderer = /** @class */ (function () {
                 if (numberOfRenderedItems) {
                     rowHeight = renderedHeight / numberOfRenderedItems;
                 }
+                gridContainer.style.height = totalContentHeight + "px";
+                grid.style['top'] = offsetY + "px";
             }
         };
         var updateFunc = update;

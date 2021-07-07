@@ -47,7 +47,9 @@ export class VirtualRenderer implements Renderer {
         }
         const itemPadding = 4;
 
-        const currentRange = {
+        const current = {
+            viewportHeight: undefined,
+            itemCount: undefined,
             start: undefined,
             end: undefined,  // last rendered item (including)
         };
@@ -73,22 +75,23 @@ export class VirtualRenderer implements Renderer {
             const maxOffsetY = totalContentHeight - viewportHeight - itemPadding * rowHeight;  // do not go beyond this
             const offsetY = Math.min(maxOffsetY, startIndex * rowHeight);
 
-            gridContainer.style.height = `${totalContentHeight}px`;
-            grid.style['top'] = `${offsetY}px`;
-
             // At the end of the list we will not rerender in order to avoid jumping scrollbar.
             const lastItemIndex = itemCount - 1;
-            const lastWasAdded = currentRange.end === lastItemIndex;
+            const lastWasAdded = current.end === lastItemIndex;
             const lastWillBeAdded = endIndex === lastItemIndex;
             const noMoreItemsAvailable = lastWasAdded && lastWillBeAdded;
-            const newRangeDiffers = currentRange.start !== startIndex || currentRange.end !== endIndex;
-            const shouldRerender = newRangeDiffers && !noMoreItemsAvailable;
+            const newRangeDiffers = current.start !== startIndex || current.end !== endIndex;
+            const heightChanged = viewportHeight !== current.viewportHeight;
+            const itemCountChanged = itemCount !== current.itemCount;
+            const shouldRerender = itemCountChanged || heightChanged || (newRangeDiffers && !noMoreItemsAvailable);
 
             // Render
             if (shouldRerender) {
                 const desiredRenderHeight = visibleNodesCount * rowHeight; // viewport + padding
-                currentRange.start = startIndex;
-                currentRange.end = endIndex;
+                current.start = startIndex;
+                current.end = endIndex;
+                current.viewportHeight = viewportHeight;
+                current.itemCount = itemCount;
                 grid.innerHTML = '';
                 grid.appendChild(head);
                 const headerHeight = grid.offsetHeight;
@@ -115,6 +118,9 @@ export class VirtualRenderer implements Renderer {
                 if (numberOfRenderedItems) {
                     rowHeight = renderedHeight / numberOfRenderedItems;
                 }
+
+                gridContainer.style.height = `${totalContentHeight}px`;
+                grid.style['top'] = `${offsetY}px`;
             }
         };
 
