@@ -113,7 +113,7 @@ export class Grid {
         const cell = row.cells[colIndex];
         if (cell) {
             cell.set(value);
-            this.updatValue(cell, emit);
+            this.updateValue(cell, emit);
         }
     }
 
@@ -416,7 +416,7 @@ export class Grid {
         const onInput = (e: KeyboardEvent) => {
             const activeCell = this.activeCell;
             if (activeCell && !activeCell.readonly && activeCell.takesKey()) {
-                this.updatValue(activeCell, true);
+                this.updateValue(activeCell, true);
                 this.cells.forEach(cell => {
                     if (cell.selected() && cell !== activeCell) {
                         this.setCell(cell, activeCell.value());
@@ -521,7 +521,7 @@ export class Grid {
     private setCell(cell: Cell, value: string) {
         if (!cell.readonly) {
             cell.set(value);
-            this.updatValue(cell, true);
+            this.updateValue(cell, true);
         }
     }
 
@@ -534,7 +534,7 @@ export class Grid {
         return selectionChanged;
     }
 
-    private updatValue(cell: Cell, emit: boolean) {
+    private updateValue(cell: Cell, emit: boolean) {
         const colIndex = cell.col;
         const rowOption = this.options.rows[cell.row];
         const cellValue = rowOption[colIndex];
